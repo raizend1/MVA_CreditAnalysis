@@ -1,8 +1,6 @@
-Dear Mr./Ms.
+#About the project
 
-
-Thank you for your interests in
-the data set.
+#More detailed explanation on data
 This research employed a binary variable, default
 payment (Yes = 1, No = 0), as the response variable. This study reviewed the
 literature and used the following 23 variables as explanatory variables:
@@ -57,13 +55,3 @@ dollar). X18 = amount paid in September, 2005; X19 = amount paid in August,
 
 Y:
 client's behavior; Y=0 then not default, Y=1 then default
-
-??? (I-Cheng Yeh) ??
-???? ?????? ??
-???: ??? E721
-??:(02)26215656-3181
-e-mail: 140910@mail.tku.edu.tw
-Prof. I-Cheng Yeh
-Department of Civil Engineering
-Tamkang University,
-e-mail: 140910@mail.tku.edu.tw
