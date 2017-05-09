@@ -1,6 +1,7 @@
 # About the project
+This project uses multivariant methods to discover hidden features on the default of credit card clients Data Set
 
-# More detailed explanation on data
+# More detailed explanation on dataset used
 This research employed a binary variable, default
 payment (Yes = 1, No = 0), as the response variable. This study reviewed the
 literature and used the following 23 variables as explanatory variables:
