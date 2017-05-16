@@ -89,7 +89,9 @@ initial.barplot<-function(input.dataset,mapping.variable){
 grid.plot<-function(input.dataset,bins){
   require(ggplot2)
   require(gridExtra)
+  dev.new()
   dev.off()
+  
   par(mar=c(3,3,2,2))
   l.data<-length(input.dataset)
   rounded<-round(sqrt(l.data),0)
