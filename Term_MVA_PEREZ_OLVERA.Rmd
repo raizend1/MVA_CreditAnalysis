@@ -1,10 +1,13 @@
 ---
 title: "MVA Final Project"
 author:
--  name: "Francisco Perez"
--  name: "Alejandro Olvera"
-date: "1 de mayo de 2017"
-output: html_document
+- name: Francisco Perez
+- name: Alejandro Olvera
+date: "June 1st 2017"
+output:
+  pdf_document: default
+  html_document: default
+bibliography: bibliography.bib
 ---
 
 ```{r setup, include=FALSE}
@@ -14,7 +17,6 @@ output: html_document
 
 # Initialise workspace, remove old objects for safety resons and define a utility function
 rm(list=ls(all=TRUE))
-dev.off()
 set.seed(123)
 source("Term_MVA_PEREZ_OLVERA_utility_functions.R")
 source("workingDir.R")
@@ -29,8 +31,62 @@ library(class)
 library(e1071)
 library(psych)
 library(DMwR)
+library(chemometrics)
 library(ggrepel)
 library(ggthemes)
+library(robustbase)
+```
+
+## Motivation
+Datsets came from a wide variety of sources: medical, ecological, economics, social welfare and status, etc. This data are inherently complex and it is common to find that just a single response variable does not describe the behaviour of the entire system. Multivariate analysis deals with these scenarios, pocessing techniques that can reveal hidden information, otherwise undetected by univariate methods. Generally, multivariate approaches are favoured to multiple executions of univariate methods as they save time and conserve statistical power which is quickly lost through multiple testing. 
+
+The objective of this work, is to apply the multivariate techniques learn in classes, to discover new features and the relation of the variables in a given dataset.
+
+## Description of the dataset
+For this analysis, we will use the default of credit card clients Data Set from UCI Machine Learning Repository [@defaultDataSet] that contains the data from customers default payments in Taiwan from the year 2005. 
+
+The data contains one response variable and 23 explanatory variables, defined as follows:
+
+* X1: Amount of the given credit (NT dollar): it includes both the individual consumer credit and his/her family (supplementary) credit.
+
+* X2: Gender (1 = male; 2 = female).
+
+* X3: Education (1 = graduate school; 2 = university; 3 = high school; 0, 4, 5, 6 = others).
+
+* X4: Marital status (1 = married; 2 = single; 3 = divorce; 0=others).
+
+* X5: Age (year).
+
+* X6 - X11: History of past payment. We tracked the past monthly payment records (from April to September, 2005) as follows:
+  + X6 = the repayment status in September, 2005; 
+  + X7 = the repayment status in August, 2005; . . .;
+  + X11 = the repayment status in April, 2005. The measurement scale for the repayment status is: 
+
+  + -2: No consumption; 
+  + -1: Paid in full; 
+  + 0: The use of revolving credit; 
+  + 1 = payment delay for one month; 
+  + 2 = payment delay for two months; . . .; 
+  + 8 = payment delay for eight months; 
+  + 9 = payment delay for nine months and above.
+
+* X12-X17: Amount of bill statement (NT dollar). 
+  + X12 = amount of bill statement in September, 2005; 
+  + X13 = amount of bill statement in August, 2005; . . .; 
+  + X17 = amount of bill statement in April, 2005. 
+
+* X18-X23: Amount of previous payment (NT dollar). 
+  + X18 = amount paid in September, 2005; 
+  + X19 = amount paid in August, 2005;...
+  + X23 = amount paid in April, 2005.
+
+
+* Y: client's behavior; 
+  + Y=0 then not default
+  + Y=1 then default
+  
+## Methodology
+```{r, include=FALSE}
 
 #***************************************************************************#
 #                    1. Data Loading and Preprocessing                      #
@@ -39,12 +95,17 @@ library(ggthemes)
 # Read initial data
 data.path <- glue(dataDir,"/","default_of_credit_card_clients.csv")
 credit <- read.table(data.path, header = TRUE,sep = ";")
-str(credit)
-dim(credit)
-# [1] 30000    25
 ```
-We have a dataset with 30000 rows and 25 variables. All variables are defined as continuous integers, and some of them need to be changed to categorical.
-```{r setup, include=FALSE}
+The selected language to do the processing is R, with its IDE R Studio. For the plots we will use ggplot and lattice
+
+```{r, include=TRUE}
+dim(credit)
+
+str(credit)
+```
+We have a dataset with 30000 rows and 25 variables. All variables are defined as continuous integers, and some of them need to be changed to categorical. 
+
+```{r, include=FALSE}
 # Change 'SEX', 'EDUCATION', 'MARRIAGE', 'AGE' and 'default.payment.next.month' to categorical
 factor.indexes <- which(names(credit) %in% c("PAY_0","PAY_2","PAY_3","PAY_4","PAY_5","PAY_6","SEX","EDUCATION","MARRIAGE","default.payment.next.month")) 
 credit[,factor.indexes] <- lapply(credit[,factor.indexes], as.factor)
@@ -54,6 +115,7 @@ levels(credit$SEX) <- c("Male", "Female")
 levels(credit$EDUCATION) <- c("Unknown1", "Graduate", "University", "High School", "Unknown2", "Unknown3", "Unknown4")
 levels(credit$MARRIAGE) <- c("Other", "Married", "Single", "Divorced")
 levels(credit$default.payment.next.month) <- c("Not default", "Default")
+# levels(credit$PAY_0) <- c("No consumption", "Paid in full","The use of revolving credit","Payment delay for one month","Payment delay for two months")
 
 str(credit)
 summary(credit)
@@ -63,6 +125,7 @@ credit<- credit[,-1]
 factor.indexes<-factor.indexes-1 # update indexes of the factors
 ```
 
+```{r, include=FALSE}
 
 #***************************************************************************#
 #                2. Initial Exploratory Data Analysis (EDA)                 #
@@ -76,7 +139,6 @@ factor.indexes<-factor.indexes-1 # update indexes of the factors
 # (i.e. are zero variance predictors) or predictors that are have both of the following characteristics: 
 # they have very few unique values relative to the number of samples and the ratio of the frequency of the 
 # most common value to the frequency of the second most common value is large.  
-```{r setup, include=FALSE}
 library("caret")
 x = nearZeroVar(credit, saveMetrics = TRUE)
 str(x)
@@ -117,109 +179,129 @@ credit<-credit[-num.zeros.index,]
 # update continuous and factor data
 credit.continuos<-credit[,-factor.indexes]
 credit.factors<-credit[,factor.indexes]
-```
 
 
-To deal with negative values, we use log modulus transformation => L(X)=sign(x)*log(|x|+1) in the variable, like this
+#######*****************NOTA PARA CESC: talves la parte siguiente esta ya obsoleta por el gr'afico de arriba
 
-```{r setup, include=FALSE}
+################# Analysis of the continuous variables ###################
+# define continuous and factor data
+credit.continuos<-credit[,-factor.indexes]
+credit.factors<-credit[,factor.indexes]
+
+summary(credit.continuos)
+
+###### LIMIT_BAL ######
+# Everything seems correct, we have an extreme outlier of an individual with a credit limit of 1.000.000, but it is
+# not impossible, just a lucky rich person :).
+credit[credit$LIMIT_BAL > 900000,]
+initial.histogram(credit,LIMIT_BAL,FALSE)
+initial.boxplot(credit,LIMIT_BAL,FALSE)
+
+###### AGE ######
+# Nothing weird. The mean age of the individuals is 35.49 years.
+initial.histogram(credit,AGE,FALSE)
+initial.boxplot(credit,AGE,FALSE)
+
+###### BILL_AMT(X) ######
+# We see that we have some negative values in the BILL_AMT(X) variables, can this be possible?
+# Let's count how many we have.
+sum = 0
+for(i in 12:17){
+  sum <- sum + sum(credit[,i] < 0)
+}
+print(sum)
+# Cesc: We have 3932 different negative values in the BILL_AMT(X) set of variables. What should
+# we do about them?
+
+# Paco: To deal with negative values, we use log modulus transformation => L(X)=sign(x)*log(|x|+1)
+# in the variable, like this
+
 credit.log<-log.modulus(credit,5)
 grid.plot(credit.log,15)
 
 initial.histogram(credit,BILL_AMT1,FALSE)
 initial.boxplot(credit,BILL_AMT1,FALSE)
 
-```
+###### PAY_AMT(X) ######
+# All the values for PAY_AMT(X) are either 0 or positive, which is correct. However, we observe that the distribution
+# is very skewed, which leads us to apply logarithms. 
+# For example, PAY_AMT1 has a mean of 5664, but its maximum is 873552. We can't know for sure if this is
+# correct. Let's take a look at the histogram and the boxplot
+ggplot(credit, aes(x = 0, y = PAY_AMT1)) +
+  geom_boxplot()
 
+ggplot(credit, aes(x = (PAY_AMT1))) +
+  geom_histogram(bins = 20)
+ggplot(credit, aes(x = log10(PAY_AMT1))) +
+  geom_histogram(bins = 20)
+
+# Paco: nota para Cesc: para análisis de datos multivariantes, Tomás mencionó que el boxplot ya no era tan 
+# explicativo, usabamos mahalanobis distance, creo que debemos dejarlo y  fijate en el codigo que uso abajo para 
+# detectar outliers con el método lofactor, esto lo preguntamos a Tomás o a Lluis por mail, dime que te parece y 
+# lo hacemos.
+
+# Nota para Cesc: cesc ya le he preguntado a Tomás, me dice que en este caso lo mas recomendable es dejar las
+# variables sin transformar, ademas a pesar de tener el oulier no nos sirve de nada, es como tu mismo pusiste, solo
+# gente con mucha pasta jejeje
+
+##################################################################################################################################
 
 #***************************************************************************#
 #                        2.3 check distribution of data                     #
 #***************************************************************************#
 
-Let's check the distribution of all the variables. For the continuous ones we can plot an histogram, for the categorical ones, a barplot with the distribution within the levels of the variable.
-```{r setup, include=FALSE}
+# Let's check the distribution of all the variables. For the continuous ones we can plot an histogram, 
+# for the categorical ones, a barplot with the distribution within the levels of the variable.
 grid.plot(credit,15)
-```
-with this plot, we can see that the continuous data is very skewed, and not normal at all, we will apply some transformations to make the data more "normal" first, apply log modulus transformation in an attempt to normalize data and then plot
-```{r setup, include=FALSE}
+# with this plot, we can see that the continuous data is very skewed, and not normal at all, we will apply some 
+# transformations to make the data more "normal"
+
+# First, apply log modulus transformation in an attempt to normalize data and then plot
 credit.log<-log.modulus(credit,5)
 grid.plot(credit.log,15)
-```
-Draw the first joint plot with all "original" values for continuous data
-```{r setup, include=FALSE}
+
+# Just Isolating each data and show the difference after and before plotting
 grid.plot.continuos(credit.continuos, "histogram")
-```
-Then the log values
-```{r setup, include=FALSE}
 grid.plot.continuos(credit.log[,-factor.indexes],"histogram")
-```
-As we can see, the data is not normalized at all, we will use boxcox transform as well
-```{r setup, include=FALSE}
-require(MASS)
-# Paco: To deal with negative values, we can sum the minimum value to all the values
-# in the variable, like this
-credit.minimum<-lapply(credit.continuos,min)
-credit.positives<- credit.continuos
-for(i in 1:dim(credit.continuos)[2]){
-  if(credit.minimum[i]<0){
-    credit.positives[,i] <- credit.continuos[,i]+(as.numeric(credit.minimum[i])*-1)
-  }
-}
 
-# draw the first joint plot with all "original" values for continuous data
-draw.plot(credit.continuos, "histogram")
+# Most of the data tends to be normal after the log.modulus transform
 
-# from this data we can see that a scale is needed in some variables, to do so we will use boxcox
-credit.positives$default.payment.next.month<-as.numeric(credit$default.payment.next.month)
-bx <- boxcox(default.payment.next.month ~., data = credit.positives,lambda = seq(-0.25, 0.25, length = 10))
-lambda <- bx$x[which.max(bx$y)]
-credit.positives.bc <- (credit.positives$BILL_AMT2^lambda - 1)/lambda
-hist(credit.positives.bc, main="Look at that now!")
-
-#draw the joint plot with all positive values for continuous data
-draw.plot(credit.positives, "histogram")
-```
-#most of the data is not normal, have some very high skewed values, also the scales are radicall different
+# We will update our continuous plot then 
+credit.continuos.log <- credit.log[,-factor.indexes]
 
 #***************************************************************************#
 #                            2.4 Outlier Detection                          #
 #***************************************************************************#
 
 #**************************** Outlier detection with lofactor (Local Outlier Factor) ***********************************
-```{r setup, include=FALSE}
 #outlier detection with lofactor (Local Outlier Factor), takes a while 
-outlier.scores <- lofactor(credit.continuos[,-2], k=10)
+require(DMwR)
+outlier.scores <- lofactor(credit.continuos.log[,-2], k=10)
 #we cannot plot, there are NaN, infinite values, possible cause is to have more repeated values than neighbours k
 plot(density(outlier.scores))
-#pick top 5 as outliers
-outliers <- order(outlier.scores, decreasing=T)[1:5]
+#pick top 10 as outliers
+outliers <- order(outlier.scores, decreasing=T)[1:10]
 hist(outliers)
 #Which are the outliers?
 print(outliers)
 # we create a table of scores and id, to remove the supossed outliers
 scores <- cbind.data.frame(score = outlier.scores,id = rownames(credit.continuos))
-credit.continuos1 <- credit.continuos[-as.numeric(scores[scores$score >= scores[outliers[5],]$score,]$id)]
+credit.continuos.log.lofactor <- credit.continuos.log[-as.numeric(scores[scores$score >= scores[outliers[5],]$score,]$id)]
 
 #**************************** Outlier detection Mahalanobis ***********************************
 #outlier detection with mahalanobis 
-outlier.scores2 <- outlier(credit.continuos[,-2])
-#pick top 5 as outliers
-outliers2 <- order(outlier.scores2, decreasing=T)[1:5]
-hist(outliers2)
-#Which are the outliers?
-print(outliers2)
-# we create a table of scores and id, to remove the supossed outliers
-scores2 <- cbind.data.frame(score = outlier.scores2,id = rownames(credit.continuos))
-credit.continuos2 <- credit.continuos[-as.numeric(scores2[scores2$score >= scores2[outliers2[5],]$score,]$id)]
-```
+require(chemometrics)
+outlier.scores2 <- Moutlier(credit.continuos.log[,-2],quantile=0.975,plot=TRUE)
+credit.continuos.log.Moutlier <- subset(credit.continuos.log,outlier.scores2$md<outlier.scores2$cutoff)
+
 # Altought, from all this, in some cases, the're could be just rich people in some variables, 
 # or really indebted people in others
 
 #***************************************************************************#
 #              2.5 Detection of most correlated variables                   #
 #***************************************************************************#
-```{r setup, include=FALSE}
 cor(credit.continuos)
+credit.continuos.log<-credit.log[,-factor.indexes]
 library(corrplot)
 corrplot(cor(credit.continuos), method="circle")
 corrplot(cor(credit.continuos.log), method="circle")
@@ -227,6 +309,10 @@ corrplot(cor(credit.continuos.log), method="number")
 corrplot(cor(credit.continuos.log), method="color")
 corrplot(cor(credit.continuos.log), method="shade")
 mosthighlycorrelated(credit.continuos,10)
+mosthighlycorrelated(credit.continuos.log,10)
+
+# from the correlation calculus, we can see that there is a clear relationship between the values of BILL_AMT(x),
+# and BILL_AMT(x+1), so we can apply a dimensionality reduction technique, like pca for example, on this values
 
 # description of each continuos index with respect to default payment
 describeBy(credit.continuos, credit$default.payment.next.month)
@@ -347,13 +433,24 @@ head(arrange(age.df,desc(age.df$Default)), n = 5)
 #*****************************************************************************************#
 
 
-# Feature extraction/selection
-credit.PCA <- PCA(credit)
-
-
 #*****************************************************************************************#
 #                              Initial model assumptions                                  #
 #*****************************************************************************************#
+# Checking PCA
+par(mfrow=c(2,2))
+credit.PCA1 <- PCA(credit.continuos)
+credit.PCA2 <- PCA(credit.continuos.log)
+
+credit.glm<-glm()
+
+#prediction directly with log
+
+NNModel2 <- train(Train[,-10], trainResponse,
+                  method = "nnet",
+                  preProcess = c("pca"),
+                  trControl= trainControl(method = "cv", number = 10),
+                  tuneGrid = expand.grid(.size=c(1,5,10, 15, 20, 25, 30, 35, 40),.decay=c(0,0.001,0.1, 0.2, 0.3, 0.4, 0.5, 1, 2, 3, 4)))
+
 n.rows <- nrow(credit)
 n.cols <- ncol(credit)
 
@@ -366,6 +463,9 @@ abline(credit.lm)
 test.indexes <- sample(1:n.rows,size = floor(n.rows*0.3),replace = FALSE)
 credit.test <- credit[test.indexes,]
 credit.train <- credit[-test.indexes,]
+
+# then we check if the test and train samples are balanced
+table(credit$default.payment.next.month)
 
 # method to do cross validation for tunning
 
@@ -398,4 +498,12 @@ plot(p2$cptable[,2],p2$cptable[,3],type="l",xlab="size of the tree",ylab="Relati
 lines(p2$cptable[,2],p2$cptable[,4],col="blue")
 legend("topright",c("R(T)training","R(T)cv"),col=c("black","blue"),lty=1)
 plotcp(p2)
+
+```
+
+```{r generateBibliography, echo=FALSE, eval=TRUE, message=FALSE, warning=FALSE}
+require("knitcitations")
+cleanbib()
+options("citation_format" = "pandoc")
+read.bibtex(file = "bibliography.bib")
 ```
