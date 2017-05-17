@@ -6,13 +6,15 @@ author:
 date: "June 1st 2017"
 output:
   html_document: default
-  pdf_document: default
+  pdf_document:
+    fig_caption: yes
+    latex_engine: xelatex
   word_document: default
 graphics: yes
 bibliography: bibliography.bib
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE,comment=NA}
 #***************************************************************************#
 #                           0. Initialization                               #
 #***************************************************************************#
@@ -96,17 +98,22 @@ data.path <- glue(dataDir,"/","default_of_credit_card_clients.csv")
 credit <- read.table(data.path, header = TRUE,sep = ";")
 ```
 The selected language to do the processing is R, with its IDE R Studio. For the plots we will use ggplot and lattice.
+The first step is to import the data, and to have some insight of what we are dealing with, we will describe the dimensions and the attributes of the dataset, from now on called 'credit'. What we have is:
 
-```{r, include=TRUE}
+```{r, echo=FALSE,comment=NA}
 dim(credit)
 
 str(credit)
 ```
-We have a dataset with 30000 rows and 25 variables. All variables are defined as continuous integers, and some of them need to be changed to categorical. 
+Thus we now know that this is a dataset with 30000 rows and 25 variables. All variables are defined as continuous integers, but this is not correct according to the dataset creators' description, so we need to change *EDUCATION*, *MARRIAGE*, the payments from *PAY_0* to *PAY_6* and the response variable *default.payment.next.month* to categorical. Also we dont need the column *ID*, so we removed it.
 
 ```{r, include=FALSE}
-# Change 'SEX', 'EDUCATION', 'MARRIAGE', 'AGE' and 'default.payment.next.month' to categorical
-factor.indexes <- which(names(credit) %in% c("PAY_0","PAY_2","PAY_3","PAY_4","PAY_5","PAY_6","SEX","EDUCATION","MARRIAGE","default.payment.next.month")) 
+# Remove unnecesary data: ID
+credit<- credit[,-1]
+factor.indexes<-factor.indexes-1 # update indexes of the factors
+
+# Change 'AGE', 'SEX', 'EDUCATION', 'MARRIAGE', 'AGE' and 'default.payment.next.month' to categorical
+factor.indexes <- which(names(credit) %in% c("AGE","PAY_0","PAY_2","PAY_3","PAY_4","PAY_5","PAY_6","SEX","EDUCATION","MARRIAGE","default.payment.next.month")) 
 credit[,factor.indexes] <- lapply(credit[,factor.indexes], as.factor)
 
 # Rename the levels of the categorical values for better unsderstanding
@@ -120,10 +127,6 @@ for(i in 6:11){
                           "Payment delay 3M","Payment delay 4M","Payment delay 5M","Payment delay 6M","Payment delay 7M",
                           "Payment delay 8M")
 }
-
-# Remove unnecesary data: ID
-credit<- credit[,-1]
-factor.indexes<-factor.indexes-1 # update indexes of the factors
 ```
 ### Check Zero variance predictors 
 Are there any zero variance predictors? nearZeroVar() diagnoses predictors that have one unique value (i.e. are zero variance predictors) or predictors that are have both of the following characteristics: they have very few unique values relative to the number of samples and the ratio of the frequency of the most common value to the frequency of the second most common value is large. 
@@ -140,7 +143,7 @@ There are none, we can conclude that all the predictors are relevant for the mom
 
 ### Check N/A Values 
 
-```{r, include=FALSE}
+```{r, echo=FALSE}
 # First check N/A values
 which(is.na(credit),arr.ind=TRUE) 
 md.pattern(credit)
@@ -174,7 +177,7 @@ credit.factors<-credit[,factor.indexes]
 ```
 
 
-```{r fig1,fig.width=6,fig.height=6,message=TRUE,fig.cap="Variable distribution", include=TRUE,echo=TRUE}
+```{r fig1,fig.width=18,fig.height=18,message=TRUE,fig.cap="Variable distribution", include=TRUE,echo=TRUE}
 #***************************************************************************#
 #                        2.3 check distribution of data                     #
 #***************************************************************************#
@@ -186,23 +189,7 @@ grid.plot(credit,15)
 # transformations to make the data more "normal"
 ```
 
-```{r, include=FALSE}
-# We could apply a log modulus transformation in an attempt to normalize data and then plot
-credit.log<-log.modulus(credit,5)
-grid.plot(credit.log,15)
-
-# Just Isolating each data and show the difference after and before plotting
-grid.plot.continuos(credit.continuos, "histogram")
-grid.plot.continuos(credit.log[,-factor.indexes],"histogram")
-
-# Most of the data tends to be normal after the log.modulus transform
-
-# We will update our continuous plot then 
-credit.continuos.log <- credit.log[,-factor.indexes]
-```
-
-
-```{r Local Oulier Factor, eval=FALSE, include=FALSE}
+```{r Local Oulier Factor, eval=TRUE, echo=FALSE}
 #***************************************************************************#
 #                            2.4 Outlier Detection                          #
 #***************************************************************************#
@@ -213,8 +200,8 @@ require(DMwR)
 outlier.scores <- lofactor(credit[,-factor.indexes], k=10)
 #we cannot plot, there are NaN, infinite values, possible cause is to have more repeated values than neighbours k
 plot(density(outlier.scores))
-#pick top 10 as outliers
-outliers <- order(outlier.scores, decreasing=T)[1:10]
+#pick top 5 as outliers
+outliers <- order(outlier.scores, decreasing=T)[1:5]
 hist(outliers)
 #Which are the outliers?
 print(outliers)
@@ -223,7 +210,7 @@ scores <- cbind.data.frame(score = outlier.scores,id = rownames(credit.continuos
 credit.lofactor <- credit[-as.numeric(scores[scores$score >= scores[outliers[5],]$score,]$id)]
 ```
 
-```{r, fig2,fig.width=8,fig.height=4,message=FALSE,fig.cap="Caption", include=TRUE,echo=TRUE}
+```{r, fig2,fig.width=8,fig.height=4,message=FALSE,fig.cap="Caption", echo=FALSE}
 #**************************** Outlier detection Mahalanobis ***********************************
 #outlier detection with mahalanobis 
 require(chemometrics)
@@ -234,26 +221,88 @@ credit.Moutlier <- subset(credit,outlier.scores$md<outlier.scores$cutoff)
 # or really indebted people in others
 ```
 
-```{r, include=TRUE}
+```{r, echo=FALSE}
 #***************************************************************************#
 #              2.5 Detection of most correlated variables                   #
 #***************************************************************************#
+#credit.continuos.lofactor<-credit.lofactor[,-factor.indexes]
 credit.continuos.Moutlier<-credit.Moutlier[,-factor.indexes]
 cor(credit.continuos.Moutlier)
 require(corrplot)
+par(mfrow=c(2,2))
 corrplot(cor(credit.continuos.Moutlier), method="circle")
 corrplot(cor(credit.continuos.Moutlier), method="number")
-corrplot(cor(credit.continuos.Moutlier), method="color")
-corrplot(cor(credit.continuos.Moutlier), method="shade")
-mosthighlycorrelated(credit.continuos.Moutlier,10)
-mosthighlycorrelated(credit.continuos.Moutlier,10)
+par(mfrow=c(1,1))
+```
+From the correlation calculus, we can see that there is a clear relationship between the values of BILL_AMT(x) and BILL_AMT(x+1), we will check this with PCA, to observe if there is a dimension that it is not obviuos to capture and to decide wich variables could be added.
+```{r, include=FALSE}
+#*****************************************************************************************#
+#                                   2.6 PCA Construction                                  #
+#*****************************************************************************************#
 
-# from the correlation calculus, we can see that there is a clear relationship between the values of BILL_AMT(x),
-# and BILL_AMT(x+1), so we can apply a dimensionality reduction technique, like pca for example, on this values
+n<-nrow(credit.continuos.Moutlier)
+p<-ncol(credit.continuos.Moutlier)
 
-# description of each continuos index with respect to default payment
-#describeBy(credit.continuos.Moutlier, credit$default.payment.next.month)
-#pairs(credit.continuos.Moutlier, main = "Default payment pair plot", col = (1:length(levels(credit$default.payment.next.month)))[unclass(credit$default.payment.next.month)])
+#define matrix N
+weight <- rep(1,n)
+N <- diag(weight/sum(weight))
+
+#calculate centroids
+G<-t(as.matrix(credit.continuos.Moutlier)) %*% N %*% rep(1,n)
+
+#centering X
+X <-scale(credit.continuos.Moutlier,scale = FALSE,center = G)
+
+#covariance matrix
+covX <- t(X) %*% N %*% X
+
+#standardizing
+Xs<-scale(X)
+Xs <- Xs * sqrt(n)/sqrt(n-1)
+
+plot(eigX$value,type="l",main="Screeplot")
+cumsum(100*eigX$values/sum(eigX$values))
+e_ncp<-estim_ncp(X, ncp.min=0, ncp.max=p-1, scale=TRUE, method="GCV")
+
+require(FactoMineR)
+par(mfrow=c(2,2))
+credit.continuos.Moutlier$default.payment.next.month <- credit.Moutlier$default.payment.next.month
+credit.PCA1 <- PCA(credit.continuos.Moutlier,quali.sup = 14,ncp = e_ncp$ncp)
+#credit.PCA2 <- PCA(credit.continuos.lofactor)
+summary(credit.PCA1)
+```
+
+```{r, include=FALSE}
+require(factoextra)
+#PCA Colored according to  the quality of representation of the variables
+fviz_pca_var(credit.PCA1, col.var="cos2") +
+scale_color_gradient2(low="white", mid="blue", high="red", midpoint=0.5) + theme_minimal()
+# If a variable is perfectly represented by only two components, the sum of the cos2 is equal to one. In this case the variables will be positioned on the circle of correlations.
+# For some of the variables, more than 2 components are required to perfectly represent the data. In this case the variables are positioned inside the circle of correlations.
+
+# Coordinates of variables
+head(credit.PCA1$var$coord)
+head(credit.PCA1$var$contrib)
+#All the BILL_AMT are well represented and contribute the most to dim 1. LIMIT_BALL is more related to dim2
+dimdesc(credit.PCA1)
+
+#Plot the quality of the representation for individuals on the principal components and colour them using the cos2 values 
+fviz_pca_ind(credit.PCA1, col.ind="cos2") +
+scale_color_gradient2(low="white", mid="blue", 
+   high="red", midpoint=0.50) + theme_minimal()
+```
+
+```{r, include=TRUE}
+#*****************************************************************************************#
+#                                  2.7 Feature Extraction                                #
+#****************************************************************************************#
+```
+
+```{r, include=FALSE}
+#*****************************************************************************************#
+#                               Definition of clusters                                    #
+#*****************************************************************************************#
+
 ```
 
 ```{r, include=FALSE}
@@ -357,33 +406,17 @@ head(arrange(age.df,desc(age.df$Default)), n = 5)
 # this ratio is somewhat scattered, but they are around 51 and 64 years old, the most default is 
 # predominant.
 ```
-
-```{r, include=FALSE}
+We will create a PCA for all the continuos variables and a MCA for the categorical ones, determining the relation that all the variables has to each other. In this exploratory analyzis, we first check the balance of the sample with respect to our response variable:
+```{r, echo=FALSE,eval=TRUE,comment=NA}
 #*****************************************************************************************#
 #                                   2.5 PCA Construction                                  #
 #*****************************************************************************************#
 # We first check if the test and train samples are balanced
-table(credit$default.payment.next.month)
-
-require(FactoMineR)
-par(mfrow=c(2,2))
-credit.PCA1 <- PCA(credit.continuos)
-credit.PCA2 <- PCA(credit.continuos.log)
+rbind(noquote(table(credit$default.payment.next.month)),sapply(prop.table(table(credit$default.payment.next.month))*100, function(u) noquote(sprintf('%.2f%%',u))))
 ```
-
-```{r, include=FALSE}
-#*****************************************************************************************#
-#                               Definition of clusters                                    #
-#*****************************************************************************************#
-
-```
+So we first deal with this, using 
 
 ```{r, include=TRUE}
-#*****************************************************************************************#
-#                            3. DERIVATION OF NEW VARIABLES                               #
-#*****************************************************************************************#
-
-
 #*****************************************************************************************#
 #                              Initial model assumptions                                  #
 #*****************************************************************************************#
