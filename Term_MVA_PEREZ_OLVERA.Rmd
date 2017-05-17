@@ -5,10 +5,10 @@ author:
 - name: Alejandro Olvera
 date: "June 1st 2017"
 output:
-  pdf_document:
-    fig_caption: yes
-    latex_engine: xelatex
   html_document: default
+  pdf_document: default
+  word_document: default
+graphics: yes
 bibliography: bibliography.bib
 ---
 
@@ -174,7 +174,7 @@ credit.factors<-credit[,factor.indexes]
 ```
 
 
-```{r fig1,fig.width=18,fig.height=18,message=FALSE,fig.cap="Variable distribution", include=TRUE,echo=TRUE}
+```{r fig1,fig.width=6,fig.height=6,message=TRUE,fig.cap="Variable distribution", include=TRUE,echo=TRUE}
 #***************************************************************************#
 #                        2.3 check distribution of data                     #
 #***************************************************************************#
