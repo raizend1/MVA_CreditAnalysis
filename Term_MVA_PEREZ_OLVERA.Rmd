@@ -292,19 +292,24 @@ head(credit.PCA1$var$coord)
 head(credit.PCA1$var$contrib)
 #All the BILL_AMT are well represented and contribute the most to dim 1. LIMIT_BALL is more related to dim2
 dimdesc(credit.PCA1)
+```
 
+```{r, include=FALSE}
 #Plot the quality of the representation for individuals on the principal components and colour them using the cos2 values 
 fviz_pca_ind(credit.PCA1, col.ind="cos2") +
 scale_color_gradient2(low="white", mid="blue", 
    high="red", midpoint=0.50) + theme_minimal()
 ```
 
-```{r, include=FALSE}
+```{r, echo=FALSE}
 credit.factors$default.payment.next.month <- credit.factors$default.payment.next.month
 credit.MCA<-MCA(credit.factors, quali.sup = c(which(names(credit.factors)==c("default.payment.next.month"))),level.ventil = 0.2,ncp=20)
 ```
-```{r, include=FALSE}
-dimdesc(credit.MCA)
+
+```{r, echo=FALSE}
+dimdesc(credit.MCA, axes=1:2, proba=0.05)
+# Visualize top 10 variable categories
+fviz_mca_var(credit.MCA, select.var = list(cos2 = 10))
 ```
 
 ```{r, include=TRUE}
