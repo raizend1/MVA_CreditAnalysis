@@ -267,7 +267,7 @@ e_ncp<-estim_ncp(X, ncp.min=0, ncp.max=p-1, scale=TRUE, method="GCV")
 require(FactoMineR)
 par(mfrow=c(2,2))
 credit.continuos.Moutlier$default.payment.next.month <- credit.Moutlier$default.payment.next.month
-credit.PCA1 <- PCA(credit.continuos.Moutlier,quali.sup = 14,ncp = e_ncp$ncp)
+credit.PCA1 <- PCA(credit.continuos.Moutlier,quali.sup = c(which(names(credit.continuos.Moutlier)==c("default.payment.next.month"))),ncp = e_ncp$ncp)
 #credit.PCA2 <- PCA(credit.continuos.lofactor)
 summary(credit.PCA1)
 ```
@@ -290,6 +290,11 @@ dimdesc(credit.PCA1)
 fviz_pca_ind(credit.PCA1, col.ind="cos2") +
 scale_color_gradient2(low="white", mid="blue", 
    high="red", midpoint=0.50) + theme_minimal()
+```
+
+```{r, include=FALSE}
+credit.factors$default.payment.next.month <- credit.factors$default.payment.next.month
+credit.MCA<-MCA(credit.factors, quali.sup = c(which(names(credit.factors)==c("default.payment.next.month"))),level.ventil = 0.2,ncp=20)
 ```
 
 ```{r, include=TRUE}
