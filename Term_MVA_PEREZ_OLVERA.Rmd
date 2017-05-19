@@ -108,13 +108,13 @@ str(credit)
 Thus we now know that this is a dataset with 30000 rows and 25 variables. All variables are defined as continuous integers, but this is not correct according to the dataset creators' description, so we need to change *EDUCATION*, *MARRIAGE*, the payments from *PAY_0* to *PAY_6* and the response variable *default.payment.next.month* to categorical. Also we dont need the column *ID*, so we removed it.
 
 ```{r, include=FALSE}
-# Remove unnecesary data: ID
-credit<- credit[,-1]
-factor.indexes<-factor.indexes-1 # update indexes of the factors
-
 # Change 'AGE', 'SEX', 'EDUCATION', 'MARRIAGE', 'AGE' and 'default.payment.next.month' to categorical
 factor.indexes <- which(names(credit) %in% c("AGE","PAY_0","PAY_2","PAY_3","PAY_4","PAY_5","PAY_6","SEX","EDUCATION","MARRIAGE","default.payment.next.month")) 
 credit[,factor.indexes] <- lapply(credit[,factor.indexes], as.factor)
+
+# Remove unnecesary data: ID
+credit<- credit[,-1]
+factor.indexes<-factor.indexes-1 # update indexes of the factors
 
 # Rename the levels of the categorical values for better unsderstanding
 levels(credit$SEX) <- c("Male", "Female")
@@ -260,12 +260,17 @@ covX <- t(X) %*% N %*% X
 Xs<-scale(X)
 Xs <- Xs * sqrt(n)/sqrt(n-1)
 
+#get eigenvalues 
+eigX <- eigen(covX)
+
 plot(eigX$value,type="l",main="Screeplot")
 cumsum(100*eigX$values/sum(eigX$values))
 e_ncp<-estim_ncp(X, ncp.min=0, ncp.max=p-1, scale=TRUE, method="GCV")
+```
 
+```{r, echo=FALSE}
 require(FactoMineR)
-par(mfrow=c(2,2))
+#par(mfrow=c(2,2))
 credit.continuos.Moutlier$default.payment.next.month <- credit.Moutlier$default.payment.next.month
 credit.PCA1 <- PCA(credit.continuos.Moutlier,quali.sup = c(which(names(credit.continuos.Moutlier)==c("default.payment.next.month"))),ncp = e_ncp$ncp)
 #credit.PCA2 <- PCA(credit.continuos.lofactor)
@@ -274,12 +279,14 @@ summary(credit.PCA1)
 
 ```{r, include=FALSE}
 require(factoextra)
-#PCA Colored according to  the quality of representation of the variables
+#PCA Colored according to the quality of representation of the variables
 fviz_pca_var(credit.PCA1, col.var="cos2") +
 scale_color_gradient2(low="white", mid="blue", high="red", midpoint=0.5) + theme_minimal()
 # If a variable is perfectly represented by only two components, the sum of the cos2 is equal to one. In this case the variables will be positioned on the circle of correlations.
 # For some of the variables, more than 2 components are required to perfectly represent the data. In this case the variables are positioned inside the circle of correlations.
+```
 
+```{r, include=FALSE}
 # Coordinates of variables
 head(credit.PCA1$var$coord)
 head(credit.PCA1$var$contrib)
@@ -295,6 +302,9 @@ scale_color_gradient2(low="white", mid="blue",
 ```{r, include=FALSE}
 credit.factors$default.payment.next.month <- credit.factors$default.payment.next.month
 credit.MCA<-MCA(credit.factors, quali.sup = c(which(names(credit.factors)==c("default.payment.next.month"))),level.ventil = 0.2,ncp=20)
+```
+```{r, include=FALSE}
+dimdesc(credit.MCA)
 ```
 
 ```{r, include=TRUE}
