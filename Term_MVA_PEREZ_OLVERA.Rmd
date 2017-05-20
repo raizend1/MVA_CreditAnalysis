@@ -313,6 +313,12 @@ fviz_mca_var(credit.MCA, select.var = list(cos2 = 10))
 ```
 
 ```{r, include=TRUE}
+# Number of clusters
+credit.hcpc <- HCPC(credit.MCA)
+```
+
+
+```{r, include=TRUE}
 #*****************************************************************************************#
 #                                  2.7 Feature Extraction                                #
 #****************************************************************************************#
@@ -428,9 +434,6 @@ head(arrange(age.df,desc(age.df$Default)), n = 5)
 ```
 We will create a PCA for all the continuos variables and a MCA for the categorical ones, determining the relation that all the variables has to each other. In this exploratory analyzis, we first check the balance of the sample with respect to our response variable:
 ```{r, echo=FALSE,eval=TRUE,comment=NA}
-#*****************************************************************************************#
-#                                   2.5 PCA Construction                                  #
-#*****************************************************************************************#
 # We first check if the test and train samples are balanced
 rbind(noquote(table(credit$default.payment.next.month)),sapply(prop.table(table(credit$default.payment.next.month))*100, function(u) noquote(sprintf('%.2f%%',u))))
 ```
