@@ -90,26 +90,30 @@ The data contains one response variable and 23 explanatory variables, defined as
   + Y=0 then not default
   + Y=1 then default
   
-## Methodology
-### Data Loading and Preprocessing
+## Preprocessing 
+### Methodology
+
+The selected language to do the processing is R, with its IDE R Studio. For the plots we will use ggplot and lattice.
+The first step is to import the data, and to have some insight of what we are dealing with, we will describe the dimensions and the attributes of the dataset, from now on called 'credit'. What we have is:
+
+### Data Loading and description 
 ```{r Data loading and Preprocessing, include=FALSE}
 # Read initial data
 data.path <- glue(dataDir,"/","default_of_credit_card_clients.csv")
 credit <- read.table(data.path, header = TRUE,sep = ";")
 ```
-The selected language to do the processing is R, with its IDE R Studio. For the plots we will use ggplot and lattice.
-The first step is to import the data, and to have some insight of what we are dealing with, we will describe the dimensions and the attributes of the dataset, from now on called 'credit'. What we have is:
 
 ```{r, echo=FALSE,comment=NA}
 dim(credit)
-
+summary(credit)
 str(credit)
 ```
 Thus we now know that this is a dataset with 30000 rows and 25 variables. All variables are defined as continuous integers, but this is not correct according to the dataset creators' description, so we need to change *EDUCATION*, *MARRIAGE*, the payments from *PAY_0* to *PAY_6* and the response variable *default.payment.next.month* to categorical. Also we dont need the column *ID*, so we removed it.
+TODO: document limit bill
 
 ```{r, include=FALSE}
-# Change 'AGE', 'SEX', 'EDUCATION', 'MARRIAGE', 'AGE' and 'default.payment.next.month' to categorical
-factor.indexes <- which(names(credit) %in% c("AGE","PAY_0","PAY_2","PAY_3","PAY_4","PAY_5","PAY_6","SEX","EDUCATION","MARRIAGE","default.payment.next.month")) 
+# Change 'SEX', 'EDUCATION', 'MARRIAGE', 'AGE' and 'default.payment.next.month' to categorical
+factor.indexes <- which(names(credit) %in% c("PAY_0","PAY_2","PAY_3","PAY_4","PAY_5","PAY_6","SEX","EDUCATION","MARRIAGE","default.payment.next.month")) 
 credit[,factor.indexes] <- lapply(credit[,factor.indexes], as.factor)
 
 # Remove unnecesary data: ID
@@ -118,16 +122,19 @@ factor.indexes<-factor.indexes-1 # update indexes of the factors
 
 # Rename the levels of the categorical values for better unsderstanding
 levels(credit$SEX) <- c("Male", "Female")
-levels(credit$EDUCATION) <- c("Unknown1", "Graduate", "University", "High School", "Unknown2", "Unknown3", "Unknown4")
+levels(credit$EDUCATION) <- c("Uk1", "Grad.", "Univ.", "H.School", "Uk2", "Uk3", "Uk4")
 levels(credit$MARRIAGE) <- c("Other", "Married", "Single", "Divorced")
 levels(credit$default.payment.next.month) <- c("Not default", "Default")
 # rename factor variables from columns PAY 6 to 11
 for(i in 6:11){
-  levels(credit[,i]) <- c("No consumption", "Paid in full","Use of revolving credit","Payment delay 1M","Payment delay 2M",
-                          "Payment delay 3M","Payment delay 4M","Payment delay 5M","Payment delay 6M","Payment delay 7M",
-                          "Payment delay 8M")
+  # levels(credit[,i]) <- c("No consumption", "Paid in full","Use of revolving credit","Payment delay 1M","Payment delay 2M",
+  #                         "Payment delay 3M","Payment delay 4M","Payment delay 5M","Payment delay 6M","Payment delay 7M",
+  #                         "Payment delay 8M")
+  levels(credit[,i]) <- c("NC", "PF","URC","PD1","PD2",
+                          "PD3","PD4","PD5","PD6","PD7","PD8")
 }
 ```
+
 ### Check Zero variance predictors 
 Are there any zero variance predictors? nearZeroVar() diagnoses predictors that have one unique value (i.e. are zero variance predictors) or predictors that are have both of the following characteristics: they have very few unique values relative to the number of samples and the ratio of the frequency of the most common value to the frequency of the second most common value is large. 
 ```{r, include=FALSE}
@@ -176,6 +183,7 @@ credit.factors<-credit[,factor.indexes]
 
 ```
 
+## Check distribution of Data  
 
 ```{r fig1,fig.width=18,fig.height=18,message=TRUE,fig.cap="Variable distribution", include=TRUE,echo=TRUE}
 #***************************************************************************#
@@ -188,6 +196,8 @@ grid.plot(credit,15)
 # with this plot, we can see that the continuous data is very skewed, and not normal at all, we will apply some 
 # transformations to make the data more "normal"
 ```
+
+## Outlier Detection   
 
 ```{r Local Oulier Factor, eval=TRUE, echo=FALSE}
 #***************************************************************************#
@@ -221,9 +231,11 @@ credit.Moutlier <- subset(credit,outlier.scores$md<outlier.scores$cutoff)
 # or really indebted people in others
 ```
 
+## Detection of most correlated continuous variables 
+
 ```{r, echo=FALSE}
 #***************************************************************************#
-#              2.5 Detection of most correlated variables                   #
+#         2.5 Detection of most correlated continuous variables             #
 #***************************************************************************#
 #credit.continuos.lofactor<-credit.lofactor[,-factor.indexes]
 credit.continuos.Moutlier<-credit.Moutlier[,-factor.indexes]
@@ -235,6 +247,120 @@ corrplot(cor(credit.continuos.Moutlier), method="number")
 par(mfrow=c(1,1))
 ```
 From the correlation calculus, we can see that there is a clear relationship between the values of BILL_AMT(x) and BILL_AMT(x+1), we will check this with PCA, to observe if there is a dimension that it is not obviuos to capture and to decide wich variables could be added.
+
+## Detection of (correlation) of categorical variables 
+
+```{r, include=FALSE}
+
+#***************************************************************************#
+#       2.6 Detection of (correlation) of categorical variables             #
+#***************************************************************************#
+
+#***************************************************************************#
+#                                2.6.1 Sex                                  #
+#***************************************************************************#
+
+# In this part we are going to analyze SEX variable from the dataset to see if there is anything interesting
+# that gives us more information.
+
+# How many males and females do we have?
+initial.barplot(credit.Moutlier,SEX)
+# We have 34 % more females than males in our dataset.
+
+# How many Default's and Not-Defaults's do we have for each sex?
+grouped.count.plot(credit.Moutlier,SEX,default.payment.next.month)
+
+# It seems that females tend to have less default payments, 
+# lets compute the exact proportion to see if there is some kind of bias.
+freq.table <- (with(data = credit.Moutlier, table(SEX, default.payment.next.month)))
+p.table <- round(prop.table(freq.table, margin = 1), digits = 3)
+cbind(freq.table, p.table)
+# As we see, the proportion of males with default payment is 0.242, and the proportion of females is 0.208.
+# Indeed, males in general have a higher tendency of default payment.
+```
+
+```{r, include=FALSE}
+#***************************************************************************#
+#                            2.6.2 Education                                #
+#***************************************************************************#
+
+# a count of all the values to get an initial idea
+initial.barplot(credit.Moutlier,EDUCATION)
+# we can see that the 4 "unknown" values are very few, comparing them with the others
+# also university is most present in this data, so a better way to see this is to group them all.
+
+# a count check of all the education respect to default payment
+grouped.count.plot(credit.Moutlier,EDUCATION,default.payment.next.month)
+# university has the most population in both cases, but the tendency is to be not default,
+# so a prior assumption will be that university level koreans will be unable to fill their
+# debt obligations on time
+
+# Again a check of the proportions will be useful
+freq.table <- table(credit.Moutlier$EDUCATION, credit.Moutlier$default.payment.next.month)
+p.table <- round(prop.table(freq.table, margin = 1), digits = 3)
+cbind(freq.table, p.table)
+# The data have interesting results, first showing that not default are the most likely case in
+# the unknown categories, and also showing that even if university is the bigest tendency,
+# graduate level koreans are the ones that in proportion tend to be unable to fullfill their
+# debt obligations in time
+```
+
+```{r, include=FALSE}
+
+#***************************************************************************#
+#                            2.6.3 Marriage                                 #
+#***************************************************************************#
+# How are the levels of the variable distributed?
+initial.barplot(credit.Moutlier,MARRIAGE)
+
+# Basically we have 'Married' and 'Single' individuals, here we have the percentages of each type
+round(prop.table(table(credit.Moutlier$MARRIAGE)) * 100, digits = 1)
+
+# How many Default's and Not-Defaults's do we have for each type of marriage?
+grouped.count.plot(credit.Moutlier,MARRIAGE,default.payment.next.month)
+
+# Let's compute the exact proportion for each level to see if there is some kind of bias.
+freq.table <- (with(data = credit.Moutlier, table(MARRIAGE, default.payment.next.month)))
+p.table <- round(prop.table(freq.table, margin = 1), digits = 3)
+cbind(freq.table, p.table)
+
+# As we can see, the proportion of 'Married' individuals with default payement is 0.235, while the proportion of 
+# 'Single' is 0.209. 'Married' individuals have a higher tendency of default payement. 'Other' has a very low percentage 
+# of default payment, but we just have 54 individuals, which is not enough data. 'Divorced' has the higher 
+# percentage of default, but again we just have 323 individuals, compared to the +20000 rows that 
+# are either 'Married' or 'Single'.
+```
+
+```{r, echo=FALSE}
+
+#***************************************************************************#
+#                                 2.6.3 Age                                 #
+#***************************************************************************#
+# Even AGE is not categorical, we wanted to do an analysis to check how the age are related to the 
+# default or not default category
+# a count of all the values to get an initial idea
+initial.barplot(credit.Moutlier,AGE)
+
+require(plyr)
+head(arrange(as.data.frame(table(credit.Moutlier$AGE)),desc(Freq)), n = 5)
+# from this analysis, it is obvious that the quantity of users of credit cards, are centered around
+# 29 years old
+
+# Again a check of the proportions will be useful
+freq.table <- table(credit.Moutlier$AGE, credit.Moutlier$default.payment.next.month)
+p.table <- round(prop.table(freq.table, margin = 1), digits = 3)
+(age.df<-as.data.frame(cbind(age=row.names(p.table),freq.table, p.table)))
+head(arrange(age.df,desc(age.df$`Not default`)), n = 5)
+# in this case, the proportions for not default are around 31 years, somewhat closed from the total
+# around 29, but for 57 years, there is also a higher ratio in here, the default parameter is dominant
+# in all the cases
+head(arrange(age.df,desc(age.df$Default)), n = 5)
+# this ratio is somewhat scattered, but they are around 51 and 64 years old, the most default is 
+# predominant.
+```
+
+## PCA Construction
+
 ```{r, include=FALSE}
 #*****************************************************************************************#
 #                                   2.6 PCA Construction                                  #
@@ -273,9 +399,13 @@ require(FactoMineR)
 #par(mfrow=c(2,2))
 credit.continuos.Moutlier$default.payment.next.month <- credit.Moutlier$default.payment.next.month
 credit.PCA1 <- PCA(credit.continuos.Moutlier,quali.sup = c(which(names(credit.continuos.Moutlier)==c("default.payment.next.month"))),ncp = e_ncp$ncp)
-#credit.PCA2 <- PCA(credit.continuos.lofactor)
-summary(credit.PCA1)
 ```
+
+# ```{r, echo=FALSE}
+# credit.continuos$default.payment.next.month <- credit$default.payment.next.month
+# credit.PCA2 <- PCA(credit.continuos,,quali.sup = c(which(names(credit.continuos.Moutlier)==c("default.payment.next.month"))),ncp = e_ncp$ncp)
+# summary(credit.PCA2)
+# ```
 
 ```{r, include=FALSE}
 require(factoextra)
@@ -331,107 +461,7 @@ credit.hcpc <- HCPC(credit.MCA)
 
 ```
 
-```{r, include=FALSE}
 
-#***************************************************************************#
-#       2.6 Detection of (correlation) of categorical variables             #
-#***************************************************************************#
-
-#***************************************************************************#
-#                                2.6.1 Sex                                  #
-#***************************************************************************#
-
-# In this part we are going to analyze SEX variable from the dataset to see if there is anything interesting
-# that gives us more information.
-
-# How many males and females do we have?
-initial.barplot(credit,SEX)
-# We have 34 % more females than males in our dataset.
-
-# How many Default's and Not-Defaults's do we have for each sex?
-grouped.count.plot(credit,SEX,default.payment.next.month)
-
-# It seems that females tend to have less default payments, 
-# lets compute the exact proportion to see if there is some kind of bias.
-freq.table <- (with(data = credit, table(SEX, default.payment.next.month)))
-p.table <- round(prop.table(freq.table, margin = 1), digits = 3)
-cbind(freq.table, p.table)
-# As we see, the proportion of males with default payment is 0.242, and the proportion of females is 0.208.
-# Indeed, males in general have a higher tendency of default payment.
-
-
-#***************************************************************************#
-#                            2.6.2 Education                                #
-#***************************************************************************#
-
-# a count of all the values to get an initial idea
-initial.barplot(credit,EDUCATION)
-# we can see that the 4 "unknown" values are very few, comparing them with the others
-# also university is most present in this data, so a better way to see this is to group them all.
-
-# a count check of all the education respect to default payment
-grouped.count.plot(credit,EDUCATION,default.payment.next.month)
-# university has the most population in both cases, but the tendency is to be not default,
-# so a prior assumption will be that university level koreans will be unable to fill their
-# debt obligations on time
-
-# Again a check of the proportions will be useful
-freq.table <- table(credit$EDUCATION, credit$default.payment.next.month)
-p.table <- round(prop.table(freq.table, margin = 1), digits = 3)
-cbind(freq.table, p.table)
-# The data have interesting results, first showing that not default are the most likely case in
-# the unknown categories, and also showing that even if university is the bigest tendency,
-# graduate level koreans are the ones that in proportion tend to be unable to fullfill their
-# debt obligations in time
-
-#***************************************************************************#
-#                            2.6.3 Marriage                                 #
-#***************************************************************************#
-# How are the levels of the variable distributed?
-initial.barplot(credit,MARRIAGE)
-
-# Basically we have 'Married' and 'Single' individuals, here we have the percentages of each type
-round(prop.table(table(credit$MARRIAGE)) * 100, digits = 1)
-
-# How many Default's and Not-Defaults's do we have for each type of marriage?
-grouped.count.plot(credit,MARRIAGE,default.payment.next.month)
-
-# Let's compute the exact proportion for each level to see if there is some kind of bias.
-freq.table <- (with(data = credit, table(MARRIAGE, default.payment.next.month)))
-p.table <- round(prop.table(freq.table, margin = 1), digits = 3)
-cbind(freq.table, p.table)
-
-# As we can see, the proportion of 'Married' individuals with default payement is 0.235, while the proportion of 
-# 'Single' is 0.209. 'Married' individuals have a higher tendency of default payement. 'Other' has a very low percentage 
-# of default payment, but we just have 54 individuals, which is not enough data. 'Divorced' has the higher 
-# percentage of default, but again we just have 323 individuals, compared to the +20000 rows that 
-# are either 'Married' or 'Single'.
-
-#***************************************************************************#
-#                                 2.6.3 Age                                 #
-#***************************************************************************#
-# Even AGE is not categorical, we wanted to do an analysis to check how the age are related to the 
-# default or not default category
-# a count of all the values to get an initial idea
-initial.barplot(credit,AGE)
-
-require(plyr)
-head(arrange(as.data.frame(table(credit$AGE)),desc(Freq)), n = 5)
-# from this analysis, it is obvious that the quantity of users of credit cards, are centered around
-# 29 years old
-
-# Again a check of the proportions will be useful
-freq.table <- table(credit$AGE, credit$default.payment.next.month)
-p.table <- round(prop.table(freq.table, margin = 1), digits = 3)
-(age.df<-as.data.frame(cbind(age=row.names(p.table),freq.table, p.table)))
-head(arrange(age.df,desc(age.df$`Not default`)), n = 5)
-# in this case, the proportions for not default are around 31 years, somewhat closed from the total
-# around 29, but for 57 years, there is also a higher ratio in here, the default parameter is dominant
-# in all the cases
-head(arrange(age.df,desc(age.df$Default)), n = 5)
-# this ratio is somewhat scattered, but they are around 51 and 64 years old, the most default is 
-# predominant.
-```
 We will create a PCA for all the continuos variables and a MCA for the categorical ones, determining the relation that all the variables has to each other. In this exploratory analyzis, we first check the balance of the sample with respect to our response variable:
 ```{r, echo=FALSE,eval=TRUE,comment=NA}
 # We first check if the test and train samples are balanced
