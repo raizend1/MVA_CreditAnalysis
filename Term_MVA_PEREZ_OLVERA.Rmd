@@ -5,11 +5,11 @@ author:
 - name: Alejandro Olvera
 date: "June 1st 2017"
 output:
-  html_document: default
+  word_document: default
   pdf_document:
     fig_caption: yes
     latex_engine: xelatex
-  word_document: default
+  html_document: default
 graphics: yes
 bibliography: bibliography.bib
 ---
@@ -27,7 +27,7 @@ source("workingDir.R")
 
 setwd(codeDir)
 
-# Needed libraries
+# Required libraries
 library(ggplot2)
 library(mice)
 library(kernlab)
@@ -41,6 +41,7 @@ library(ggthemes)
 library(robustbase)
 library(knitcitations)
 ```
+
 
 ## Motivation
 Datasets came from a wide variety of sources: medical, ecological, economics, social welfare and status, etc. This data are inherently complex and it is common to find that just a single response variable does not describe the behaviour of the entire system. Multivariate analysis deals with these scenarios, pocessing techniques that can reveal hidden information, otherwise undetected by univariate methods. Generally, multivariate approaches are favoured to multiple executions of univariate methods as they save time and conserve statistical power which is quickly lost through multiple testing. 
@@ -97,13 +98,13 @@ The selected language to do the processing is R, with its IDE R Studio. For the 
 The first step is to import the data, and to have some insight of what we are dealing with, we will describe the dimensions and the attributes of the dataset, from now on called 'credit'. What we have is:
 
 ### Data Loading and description 
-```{r Data loading and Preprocessing, include=FALSE}
+```{r Data loading, include=FALSE}
 # Read initial data
 data.path <- glue(dataDir,"/","default_of_credit_card_clients.csv")
 credit <- read.table(data.path, header = TRUE,sep = ";")
 ```
 
-```{r, echo=FALSE,comment=NA}
+```{r Data first output, include=FALSE,comment=NA}
 dim(credit)
 summary(credit)
 str(credit)
@@ -111,7 +112,7 @@ str(credit)
 Thus we now know that this is a dataset with 30000 rows and 25 variables. All variables are defined as continuous integers, but this is not correct according to the dataset creators' description, so we need to change *EDUCATION*, *MARRIAGE*, the payments from *PAY_0* to *PAY_6* and the response variable *default.payment.next.month* to categorical. Also we dont need the column *ID*, so we removed it.
 TODO: document limit bill
 
-```{r, include=FALSE}
+```{r Change class of variables, include=FALSE}
 # Change 'SEX', 'EDUCATION', 'MARRIAGE', 'AGE' and 'default.payment.next.month' to categorical
 factor.indexes <- which(names(credit) %in% c("PAY_0","PAY_2","PAY_3","PAY_4","PAY_5","PAY_6","SEX","EDUCATION","MARRIAGE","default.payment.next.month")) 
 credit[,factor.indexes] <- lapply(credit[,factor.indexes], as.factor)
@@ -137,20 +138,21 @@ for(i in 6:11){
 
 ### Check Zero variance predictors 
 Are there any zero variance predictors? nearZeroVar() diagnoses predictors that have one unique value (i.e. are zero variance predictors) or predictors that are have both of the following characteristics: they have very few unique values relative to the number of samples and the ratio of the frequency of the most common value to the frequency of the second most common value is large. 
-```{r, include=FALSE}
+```{r Check Zero Values, echo=FALSE,include=FALSE}
  
 library("caret")
-x = nearZeroVar(credit, saveMetrics = TRUE)
-str(x)
-x[x[,"zeroVar"] > 0, ] 
-x[x[,"zeroVar"] + x[,"nzv"] > 0, ] 
+zero.variance <- nearZeroVar(credit, saveMetrics = TRUE)
+str(zero.variance)
+zero.variance[zero.variance[,"zeroVar"] > 0, ] 
+zero.variance[zero.variance[,"zeroVar"] + zero.variance[,"nzv"] > 0, ] 
 ```
 
 There are none, we can conclude that all the predictors are relevant for the moment.
 
-### Check N/A Values 
+### Check missing Values 
+TODO: document the observations and criteria to exclude the observations
 
-```{r, echo=FALSE}
+```{r Check missing values, echo=FALSE}
 # First check N/A values
 which(is.na(credit),arr.ind=TRUE) 
 md.pattern(credit)
@@ -162,7 +164,7 @@ check.zero.rows<-function(input.data){
   indexes<-NULL
   j<-1
   for(i in 1:dim(input.data)[1]){
-    if(all(input.data[i,c(1:dim(input.data)[2])]==0)){
+    if((!all(input.data[i,c(1:6)]=="NC")) && all(input.data[i,c(7:dim(input.data)[2])]==0)){
       indexes[j]<- i
       j<-j+1
     }
@@ -170,11 +172,10 @@ check.zero.rows<-function(input.data){
   return(indexes)
 }
 
-num.zeros.index<-check.zero.rows(credit[,c(12:23)])
+num.zeros.index<-check.zero.rows(credit[,c(6:23)])
 length(num.zeros.index)
-(length(num.zeros.index)*100)/dim(credit)[1]
-# so in total there are 795 of this kind of data, it represents 2.65% of the data, but we will discard them anyway
-# because this data can produce errors in further steps like the change in scales
+round((length(num.zeros.index)*100)/dim(credit)[1],2)
+
 credit<-credit[-num.zeros.index,]
 
 # update continuous and factor data
@@ -182,50 +183,57 @@ credit.continuos<-credit[,-factor.indexes]
 credit.factors<-credit[,factor.indexes]
 
 ```
+So in total there are 495 of this kind of data, it represents 1.68% of the data, but we will discard them anyway because this data can produce wrong calculations.
 
 ## Check distribution of Data  
-
-```{r fig1,fig.width=18,fig.height=18,message=TRUE,fig.cap="Variable distribution", include=TRUE,echo=TRUE}
-#***************************************************************************#
-#                        2.3 check distribution of data                     #
-#***************************************************************************#
-knitr::opts_chunk$set(cache=TRUE)
-# Let's check the distribution of all the variables. For the continuous ones we can plot an histogram, 
-# for the categorical ones, a barplot with the distribution within the levels of the variable.
+Let's check the distribution of all the variables. For the continuous ones we can plot an histogram, for the categorical ones, a barplot with the distribution within the levels of the variable.
+```{r fig1,fig.width=18,fig.height=18,message=TRUE,fig.cap="Variable distribution", echo=TRUE}
+#knitr::opts_chunk$set(cache=TRUE)
+setwd(plotDir)
+jpeg("Variable_Distribution.jpeg",width = 2000,height = 900,units = "px",res = 150)
 grid.plot(credit,15)
-# with this plot, we can see that the continuous data is very skewed, and not normal at all, we will apply some 
-# transformations to make the data more "normal"
+dev.off()
+setwd(codeDir)
 ```
+with this plot, we can see that the continuous data is very skewed, and not normal at all, we will apply some transformations to make the data more "normal"
 
 ## Outlier Detection   
 
-```{r Local Oulier Factor, eval=TRUE, echo=FALSE}
+```{r Local Oulier Factor, echo=FALSE}
 #***************************************************************************#
 #                            2.4 Outlier Detection                          #
 #***************************************************************************#
 knitr::opts_chunk$set(cache=TRUE)
-#**************************** Outlier detection with lofactor (Local Outlier Factor) ***********************************
-#outlier detection with lofactor (Local Outlier Factor), takes a while 
-require(DMwR)
-outlier.scores <- lofactor(credit[,-factor.indexes], k=10)
-#we cannot plot, there are NaN, infinite values, possible cause is to have more repeated values than neighbours k
-plot(density(outlier.scores))
-#pick top 5 as outliers
-outliers <- order(outlier.scores, decreasing=T)[1:5]
-hist(outliers)
-#Which are the outliers?
-print(outliers)
-# we create a table of scores and id, to remove the supossed outliers
-scores <- cbind.data.frame(score = outlier.scores,id = rownames(credit.continuos))
-credit.lofactor <- credit[-as.numeric(scores[scores$score >= scores[outliers[5],]$score,]$id)]
-```
+# #**************************** Outlier detection with lofactor (Local Outlier Factor) ***********************************
+# #outlier detection with lofactor (Local Outlier Factor), takes a while 
+# require(DMwR)
+# outlier.scores <- lofactor(credit[,-factor.indexes], k=10)
+# #we cannot plot, there are NaN, infinite values, possible cause is to have more repeated values than neighbours k
+# plot(density(outlier.scores))
+# #pick top 5 as outliers
+# outliers <- order(outlier.scores, decreasing=T)[1:5]
+# hist(outliers)
+# #Which are the outliers?
+# print(outliers)
+# # we create a table of scores and id, to remove the supossed outliers
+# scores <- cbind.data.frame(score = outlier.scores,id = rownames(credit.continuos))
+# credit.lofactor <- credit[-as.numeric(scores[scores$score >= scores[outliers[5],]$score,]$id)]
+# ```
+# 
+# ```{r, fig2,fig.width=8,fig.height=4,message=FALSE,fig.cap="Caption", echo=FALSE}
 
-```{r, fig2,fig.width=8,fig.height=4,message=FALSE,fig.cap="Caption", echo=FALSE}
 #**************************** Outlier detection Mahalanobis ***********************************
 #outlier detection with mahalanobis 
 require(chemometrics)
 outlier.scores <- Moutlier(credit[,-factor.indexes],quantile=0.975,plot=TRUE)
-credit.Moutlier <- subset(credit,outlier.scores$md<outlier.scores$cutoff)
+credit <- subset(credit,outlier.scores$md<outlier.scores$cutoff)
+
+# update of continuous and categorical subsets
+credit.continuos<-credit[,-factor.indexes]
+credit.factors<-credit[,factor.indexes]
+
+#cleaning up the house
+remove(outlier.scores)
 
 # Altought, from all this, in some cases, the're could be just rich people in some variables, 
 # or really indebted people in others
@@ -234,69 +242,51 @@ credit.Moutlier <- subset(credit,outlier.scores$md<outlier.scores$cutoff)
 ## Detection of most correlated continuous variables 
 
 ```{r, echo=FALSE}
-#***************************************************************************#
-#         2.5 Detection of most correlated continuous variables             #
-#***************************************************************************#
-#credit.continuos.lofactor<-credit.lofactor[,-factor.indexes]
-credit.continuos.Moutlier<-credit.Moutlier[,-factor.indexes]
-cor(credit.continuos.Moutlier)
 require(corrplot)
 par(mfrow=c(2,2))
-corrplot(cor(credit.continuos.Moutlier), method="circle")
-corrplot(cor(credit.continuos.Moutlier), method="number")
+corrplot(cor(credit.continuos), method="circle")
+corrplot(cor(credit.continuos), method="number")
 par(mfrow=c(1,1))
 ```
 From the correlation calculus, we can see that there is a clear relationship between the values of BILL_AMT(x) and BILL_AMT(x+1), we will check this with PCA, to observe if there is a dimension that it is not obviuos to capture and to decide wich variables could be added.
 
 ## Detection of (correlation) of categorical variables 
+In this part we are going to analyze each one of the categorial variables with respect to the response variable, if there is anything interesting that gives us more information.
 
-```{r, include=FALSE}
-
-#***************************************************************************#
-#       2.6 Detection of (correlation) of categorical variables             #
-#***************************************************************************#
-
-#***************************************************************************#
-#                                2.6.1 Sex                                  #
-#***************************************************************************#
-
-# In this part we are going to analyze SEX variable from the dataset to see if there is anything interesting
-# that gives us more information.
-
+### Sex 
+```{r, echo=FALSE}
 # How many males and females do we have?
-initial.barplot(credit.Moutlier,SEX)
+initial.barplot(credit,SEX)
 # We have 34 % more females than males in our dataset.
 
 # How many Default's and Not-Defaults's do we have for each sex?
-grouped.count.plot(credit.Moutlier,SEX,default.payment.next.month)
+grouped.count.plot(credit,SEX,default.payment.next.month)
 
 # It seems that females tend to have less default payments, 
 # lets compute the exact proportion to see if there is some kind of bias.
-freq.table <- (with(data = credit.Moutlier, table(SEX, default.payment.next.month)))
+freq.table <- (with(data = credit, table(SEX, default.payment.next.month)))
 p.table <- round(prop.table(freq.table, margin = 1), digits = 3)
 cbind(freq.table, p.table)
 # As we see, the proportion of males with default payment is 0.242, and the proportion of females is 0.208.
 # Indeed, males in general have a higher tendency of default payment.
 ```
 
-```{r, include=FALSE}
-#***************************************************************************#
-#                            2.6.2 Education                                #
-#***************************************************************************#
+### Education
 
+```{r, echo=FALSE}
 # a count of all the values to get an initial idea
-initial.barplot(credit.Moutlier,EDUCATION)
+initial.barplot(credit,EDUCATION)
 # we can see that the 4 "unknown" values are very few, comparing them with the others
 # also university is most present in this data, so a better way to see this is to group them all.
 
 # a count check of all the education respect to default payment
-grouped.count.plot(credit.Moutlier,EDUCATION,default.payment.next.month)
+grouped.count.plot(credit,EDUCATION,default.payment.next.month)
 # university has the most population in both cases, but the tendency is to be not default,
 # so a prior assumption will be that university level koreans will be unable to fill their
 # debt obligations on time
 
 # Again a check of the proportions will be useful
-freq.table <- table(credit.Moutlier$EDUCATION, credit.Moutlier$default.payment.next.month)
+freq.table <- table(credit$EDUCATION, credit$default.payment.next.month)
 p.table <- round(prop.table(freq.table, margin = 1), digits = 3)
 cbind(freq.table, p.table)
 # The data have interesting results, first showing that not default are the most likely case in
@@ -305,22 +295,20 @@ cbind(freq.table, p.table)
 # debt obligations in time
 ```
 
-```{r, include=FALSE}
+### Marriage
 
-#***************************************************************************#
-#                            2.6.3 Marriage                                 #
-#***************************************************************************#
+```{r, echo=FALSE}
 # How are the levels of the variable distributed?
-initial.barplot(credit.Moutlier,MARRIAGE)
+initial.barplot(credit,MARRIAGE)
 
 # Basically we have 'Married' and 'Single' individuals, here we have the percentages of each type
-round(prop.table(table(credit.Moutlier$MARRIAGE)) * 100, digits = 1)
+round(prop.table(table(credit$MARRIAGE)) * 100, digits = 1)
 
 # How many Default's and Not-Defaults's do we have for each type of marriage?
-grouped.count.plot(credit.Moutlier,MARRIAGE,default.payment.next.month)
+grouped.count.plot(credit,MARRIAGE,default.payment.next.month)
 
 # Let's compute the exact proportion for each level to see if there is some kind of bias.
-freq.table <- (with(data = credit.Moutlier, table(MARRIAGE, default.payment.next.month)))
+freq.table <- (with(data = credit, table(MARRIAGE, default.payment.next.month)))
 p.table <- round(prop.table(freq.table, margin = 1), digits = 3)
 cbind(freq.table, p.table)
 
@@ -331,23 +319,21 @@ cbind(freq.table, p.table)
 # are either 'Married' or 'Single'.
 ```
 
-```{r, echo=FALSE}
+## Age
 
-#***************************************************************************#
-#                                 2.6.3 Age                                 #
-#***************************************************************************#
+```{r, echo=FALSE}
 # Even AGE is not categorical, we wanted to do an analysis to check how the age are related to the 
 # default or not default category
 # a count of all the values to get an initial idea
-initial.barplot(credit.Moutlier,AGE)
+initial.barplot(credit,AGE)
 
 require(plyr)
-head(arrange(as.data.frame(table(credit.Moutlier$AGE)),desc(Freq)), n = 5)
+head(arrange(as.data.frame(table(credit$AGE)),desc(Freq)), n = 5)
 # from this analysis, it is obvious that the quantity of users of credit cards, are centered around
 # 29 years old
 
 # Again a check of the proportions will be useful
-freq.table <- table(credit.Moutlier$AGE, credit.Moutlier$default.payment.next.month)
+freq.table <- table(credit$AGE, credit$default.payment.next.month)
 p.table <- round(prop.table(freq.table, margin = 1), digits = 3)
 (age.df<-as.data.frame(cbind(age=row.names(p.table),freq.table, p.table)))
 head(arrange(age.df,desc(age.df$`Not default`)), n = 5)
@@ -362,22 +348,18 @@ head(arrange(age.df,desc(age.df$Default)), n = 5)
 ## PCA Construction
 
 ```{r, include=FALSE}
-#*****************************************************************************************#
-#                                   2.6 PCA Construction                                  #
-#*****************************************************************************************#
-
-n<-nrow(credit.continuos.Moutlier)
-p<-ncol(credit.continuos.Moutlier)
+n<-nrow(credit.continuos)
+p<-ncol(credit.continuos)
 
 #define matrix N
 weight <- rep(1,n)
 N <- diag(weight/sum(weight))
 
 #calculate centroids
-G<-t(as.matrix(credit.continuos.Moutlier)) %*% N %*% rep(1,n)
+G<-t(as.matrix(credit.continuos)) %*% N %*% rep(1,n)
 
 #centering X
-X <-scale(credit.continuos.Moutlier,scale = FALSE,center = G)
+X <-scale(credit.continuos,scale = FALSE,center = G)
 
 #covariance matrix
 covX <- t(X) %*% N %*% X
@@ -391,42 +373,48 @@ eigX <- eigen(covX)
 
 plot(eigX$value,type="l",main="Screeplot")
 cumsum(100*eigX$values/sum(eigX$values))
-e_ncp<-estim_ncp(X, ncp.min=0, ncp.max=p-1, scale=TRUE, method="GCV")
-```
-
-```{r, echo=FALSE}
 require(FactoMineR)
-#par(mfrow=c(2,2))
-credit.continuos.Moutlier$default.payment.next.month <- credit.Moutlier$default.payment.next.month
-credit.PCA1 <- PCA(credit.continuos.Moutlier,quali.sup = c(which(names(credit.continuos.Moutlier)==c("default.payment.next.month"))),ncp = e_ncp$ncp)
+e_ncp<-estim_ncp(X, ncp.min=0, ncp.max=p-1, scale=TRUE, method="GCV")
+ncp<-e_ncp$ncp
+
+#cleaning up the house
+rm(N,G,X,Xs,covX,eigX)
+gc()
 ```
 
 # ```{r, echo=FALSE}
-# credit.continuos$default.payment.next.month <- credit$default.payment.next.month
-# credit.PCA2 <- PCA(credit.continuos,,quali.sup = c(which(names(credit.continuos.Moutlier)==c("default.payment.next.month"))),ncp = e_ncp$ncp)
-# summary(credit.PCA2)
+# require(FactoMineR)
+# #par(mfrow=c(2,2))
+# credit.continuos.Moutlier$default.payment.next.month <- credit.Moutlier$default.payment.next.month
+# credit.PCA1 <- PCA(credit.continuos.Moutlier,quali.sup = c(which(names(credit.continuos.Moutlier)==c("default.payment.next.month"))),ncp = e_ncp$ncp)
 # ```
 
-```{r, include=FALSE}
+```{r, echo=FALSE}
+credit.continuos$default.payment.next.month <- credit$default.payment.next.month
+credit.PCA <- PCA(credit.continuos,quali.sup = c(which(names(credit.continuos)==c("default.payment.next.month"))),ncp=ncp)
+summary(credit.PCA)
+```
+
+```{r, echo=FALSE}
 require(factoextra)
 #PCA Colored according to the quality of representation of the variables
-fviz_pca_var(credit.PCA1, col.var="cos2") +
+fviz_pca_var(credit.PCA, col.var="cos2") +
 scale_color_gradient2(low="white", mid="blue", high="red", midpoint=0.5) + theme_minimal()
 # If a variable is perfectly represented by only two components, the sum of the cos2 is equal to one. In this case the variables will be positioned on the circle of correlations.
 # For some of the variables, more than 2 components are required to perfectly represent the data. In this case the variables are positioned inside the circle of correlations.
 ```
 
-```{r, include=FALSE}
+```{r, echo=FALSE}
 # Coordinates of variables
-head(credit.PCA1$var$coord)
-head(credit.PCA1$var$contrib)
+head(credit.PCA$var$coord)
+head(credit.PCA$var$contrib)
 #All the BILL_AMT are well represented and contribute the most to dim 1. LIMIT_BALL is more related to dim2
-dimdesc(credit.PCA1)
+dimdesc(credit.PCA)
 ```
 
-```{r, include=FALSE}
+```{r, echo=FALSE}
 #Plot the quality of the representation for individuals on the principal components and colour them using the cos2 values 
-fviz_pca_ind(credit.PCA1, col.ind="cos2") +
+fviz_pca_ind(credit.PCA, col.ind="cos2") +
 scale_color_gradient2(low="white", mid="blue", 
    high="red", midpoint=0.50) + theme_minimal()
 ```
@@ -444,7 +432,12 @@ fviz_mca_var(credit.MCA, select.var = list(cos2 = 10))
 
 ```{r, include=TRUE}
 # Number of clusters
+#library(rpud)  
 credit.hcpc <- HCPC(credit.MCA)
+#credit.hcpc <- rpuHclust(credit.MCA)
+#cleaning up the house
+rm(credit.hcpc)
+gc()
 ```
 
 
