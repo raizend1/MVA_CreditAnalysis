@@ -40,6 +40,7 @@ library(ggrepel)
 library(ggthemes)
 library(robustbase)
 library(knitcitations)
+library(doParallel)
 ```
 
 
@@ -141,7 +142,10 @@ Are there any zero variance predictors? nearZeroVar() diagnoses predictors that 
 ```{r Check Zero Values, echo=FALSE,include=FALSE}
  
 library("caret")
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
 zero.variance <- nearZeroVar(credit, saveMetrics = TRUE)
+stopCluster(cl)
 str(zero.variance)
 zero.variance[zero.variance[,"zeroVar"] > 0, ] 
 zero.variance[zero.variance[,"zeroVar"] + zero.variance[,"nzv"] > 0, ] 
@@ -172,7 +176,10 @@ check.zero.rows<-function(input.data){
   return(indexes)
 }
 
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
 num.zeros.index<-check.zero.rows(credit[,c(6:23)])
+stopCluster(cl)
 length(num.zeros.index)
 round((length(num.zeros.index)*100)/dim(credit)[1],2)
 
@@ -431,6 +438,9 @@ fviz_mca_var(credit.MCA, select.var = list(cos2 = 10))
 ```
 
 ```{r, include=TRUE}
+#*****************************************************************************************#
+#                               Definition of clusters                                    #
+#*****************************************************************************************#
 # Number of clusters
 #library(rpud)  
 credit.hcpc <- HCPC(credit.MCA)
@@ -448,9 +458,7 @@ gc()
 ```
 
 ```{r, include=FALSE}
-#*****************************************************************************************#
-#                               Definition of clusters                                    #
-#*****************************************************************************************#
+
 
 ```
 
