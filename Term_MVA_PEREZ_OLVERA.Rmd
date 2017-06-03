@@ -3,18 +3,21 @@ title: "MVA Final Project"
 author:
 - name: Francisco Perez
 - name: Alejandro Olvera
-date: "June 1st 2017"
+date: "June 7th 2017"
+header-includes: 
+  - \floatsetup[table]{capposition=bottom}
 output:
   pdf_document:
     fig_caption: yes
-    toc: true
+    keep_tex: yes
+    toc: yes
     toc_depth: 2
   html_document: default
   word_document: default
 graphics: yes
 bibliography: bibliography.bib
 ---
-
+\newpage
 ```{r setup, include=FALSE,comment=NA}
 #***************************************************************************#
 #                           0. Initialization                               #
@@ -49,6 +52,9 @@ library(doParallel)
 Datasets came from a wide variety of sources: medical, ecological, economics, social welfare and status, etc. This data are inherently complex and it is common to find that just a single response variable does not describe the behaviour of the entire system. Multivariate analysis deals with these scenarios, pocessing techniques that can reveal hidden information, otherwise undetected by univariate methods. Generally, multivariate approaches are favoured to multiple executions of univariate methods as they save time and conserve statistical power which is quickly lost through multiple testing. 
 
 The objective of this work, is to apply the multivariate techniques learn in classes, to discover new features and the relation of the variables in a given dataset.
+
+## Methodology
+The selected language to do the processing is R, with its IDE R Studio. For the plots we will use ggplot and lattice. The methodology is sequential, as seen in Multivariate Analysis classes
 
 ## Description of the dataset
 For this analysis, we will use the default of credit card clients Data Set from UCI Machine Learning Repository [@defaultDataSet] that contains the data from customers default payments in Taiwan from the year 2005. 
@@ -94,12 +100,11 @@ The data contains one response variable and 23 explanatory variables, defined as
   + Y=1 then default
   
 ## Preprocessing 
-### Methodology
-
-The selected language to do the processing is R, with its IDE R Studio. For the plots we will use ggplot and lattice.
 The first step is to import the data, and to have some insight of what we are dealing with, we will describe the dimensions and the attributes of the dataset, from now on called 'credit'. What we have is:
 
 ### Data Loading and description 
+We will read the dataset into the *credit* variable, from now on we will work on that dataset. In a first inspection of its dimensions, summary and structure, we can get that this is a dataset with 30000 rows and 25 variables. All variables are defined as continuous integers, but this is not correct according to the dataset creators' description, so we need to change *EDUCATION*, *MARRIAGE*, the payments from *PAY_0* to *PAY_6* and the response variable *default.payment.next.month* to categorical. Also we dont need the column *ID*, so we removed it.
+Also for a better visualization and identification of the *PAY* predictors, we have decided to rename all the levels according to the values indicated in Table 1. FOr the values on payment delay,*'X'* describes the amount of months for each value.
 ```{r Data loading, include=FALSE}
 # Read initial data
 data.path <- glue(dataDir,"/","default_of_credit_card_clients.csv")
@@ -111,8 +116,6 @@ dim(credit)
 summary(credit)
 str(credit)
 ```
-Thus we now know that this is a dataset with 30000 rows and 25 variables. All variables are defined as continuous integers, but this is not correct according to the dataset creators' description, so we need to change *EDUCATION*, *MARRIAGE*, the payments from *PAY_0* to *PAY_6* and the response variable *default.payment.next.month* to categorical. Also we dont need the column *ID*, so we removed it.
-TODO: document limit bill
 
 ```{r Change class of variables, include=FALSE}
 # Change 'SEX', 'EDUCATION', 'MARRIAGE', 'AGE' and 'default.payment.next.month' to categorical
@@ -137,6 +140,22 @@ for(i in 6:11){
                           "PD3","PD4","PD5","PD6","PD7","PD8")
 }
 ```
+
+`r require(xtable)
+xtable(
+  data.frame(
+    'Original Value' = c('-2', '-1', '0', '1 to 8'),
+    Description = c('No consumption', 'Paid in full', 'The use of revolving credit','Payment delay for (X) months'),
+    'Rename as' = c('NC', 'PF', 'URC','PD(X)')),
+  caption = 'Codification of PAY categorical values')`
+
+| Original Value | Description                  | Rename as |
+|----------------|------------------------------|-----------|
+| -2             | No consumption               | NC        |
+| -1             | Paid in full                 | PF        |
+| 0              | The use of revolving credit  | URC       |
+| 1 to 8         | Payment delay for 'X' months | PD'X'     |
+Table: Codification of *PAY* categorical values
 
 ### Check Zero variance predictors 
 Are there any zero variance predictors? nearZeroVar() diagnoses predictors that have one unique value (i.e. are zero variance predictors) or predictors that are have both of the following characteristics: they have very few unique values relative to the number of samples and the ratio of the frequency of the most common value to the frequency of the second most common value is large. 
@@ -183,7 +202,7 @@ num.zeros.index<-check.zero.rows(credit[,c(6:23)])
 stopCluster(cl)
 ```
 
-```{r Check missing values output, echo=FALSE,comment=NA}
+```{r Check missing values output, include=FALSE,comment=NA}
 length(num.zeros.index)
 round((length(num.zeros.index)*100)/dim(credit)[1],2)
 
@@ -194,21 +213,21 @@ credit.continuos<-credit[,-factor.indexes]
 credit.factors<-credit[,factor.indexes]
 
 ```
+|    | Total | Total(%) | 
+|--------|--------|---------|
+| Zero values found | `r length(num.zeros.index)` | `r round((length(num.zeros.index)*100)/dim(credit)[1],2)`  |
+Table: Total count of values found as Zero 
+
 So in total there are 495 of this kind of data, it represents 1.68% of the data, but we will discard them anyway because this data can produce wrong calculations.
 
 ## Check distribution of Data  
 Let's check the distribution of all the variables. For the continuous ones we can plot an histogram, for the categorical ones, a barplot with the distribution within the levels of the variable.
-```{r ,echo=FALSE,include=FALSE}
-#knitr::opts_chunk$set(cache=TRUE)
-setwd(plotDir)
-jpeg("Variable_Distribution.jpeg",width = 2000,height = 900,units = "px",res = 150)
-grid.plot(credit,15)
-dev.off()
-```
-![Variable distribution](Variable_Distribution.jpeg)
-```{r ,echo=FALSE, include=FALSE}
+```{r ,echo=FALSE,include=FALSE,fig.cap="Variable distribution"}
+knitr::opts_chunk$set(cache=TRUE)
+save.plot(grid.plot(credit,15),"Variable_Distribution.jpeg","jpeg",plotDir,"1500","1500","110")
 setwd(codeDir)
 ```
+![Variable distribution](`r plotDir`/Variable_Distribution.png)
 with this plot, we can see that the continuous data is very skewed, and not normal at all, we will apply some transformations to make the data more "normal"
 
 ## Outlier Detection   
@@ -608,7 +627,7 @@ confusionMatrix(pred.test, credit[credit.test,]$default.payment.next.month,mode 
 
 
 ```{r Random forest, echo=FALSE}
-# library(randomForest)
+library(randomForest)
 # credit.rf <- randomForest(default.payment.next.month ~ ., data=credit[credit.train,], mtry=3, importance=TRUE, xtest=credit[credit.test,-24], ytest=credit[credit.test,24], nodesize=50, maxnodes=14, keep.forest=TRUE)
 # summary(credit.rf)
 # credit.rf$confusion
@@ -623,6 +642,11 @@ confusionMatrix(pred.test, credit[credit.test,]$default.payment.next.month,mode 
 ```
 
 ## Conclusions
+* Item 1
+* Item 2
+    + Item 2a
+    + Item 2b
+    
 ## Further Work
 
 ```{r generateBibliography, echo=FALSE, eval=TRUE, message=FALSE, warning=FALSE}
