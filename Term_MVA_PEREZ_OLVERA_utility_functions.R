@@ -105,7 +105,7 @@ grid.plot<-function(input.dataset,bins){
     }
   }
   out.command<-substring(out.command, 1,nchar(out.command)-1)
-  eval(parse(text=glue("final.plot<-arrangeGrob(",out.command,",ncol =", rounded,", nrow =", rounded,")")))
+  eval(parse(text=glue("final.plot<-arrangeGrob(",out.command,",ncol =", rounded-1,", nrow =", rounded+1,")")))
   grid::grid.draw(final.plot)
 }
 
@@ -318,12 +318,35 @@ stratified <- function(df, group, size, select = NULL,
 #' to get 5 columns with the second one with 10cm wide: align.columns = c("rp{10cm}rrr")
 #' @param file: name of the output file. Must contain .tex at the end
 #' 
-#' @return log transformation for all the values
+#' @return latex table
 #' 
 #' @examples
 create.latex.table<-function(df,type,caption,align,file){
   require(xtable)
   ifelse(is.null(align),print(xtable(df,type=type,caption=caption),file=file),print(xtable(df,type=type,caption=caption,align = align.columns),file=file))
+}
+
+#' @title Saves a plot
+#'
+#' @description
+#' Saves a plot in the specified directory
+#' @param plot: command that creates the plot
+#' @param name: string that is name of the plot with its extension
+#' @param type: string that is type of the image (jpeg,png)
+#' @param plotDir: string that is the directory where the plot will be stored
+#' @param width: string that is the width of the plot 
+#' @param height: string that is the height of the plot 
+#' @param res: string with the resolution of the saved plot
+#' 
+#' @return saved plot
+#' 
+#' @examples
+save.plot<-function(plot,name,type,plotDir,width,height,res){
+  eval(parse(text = glue('setwd(\"',plotDir,'\");
+  ',type,'(\"',name,'\",width =', width,',height =,', height,',units = "px",res =', res,');
+  ',deparse(substitute(plot)),';
+  dev.off()')))
+  setwd(codeDir)
 }
 
 ####################ORIGINAL FUNCTIONS########################################
