@@ -7,6 +7,8 @@ date: "June 1st 2017"
 output:
   pdf_document:
     fig_caption: yes
+    toc: true
+    toc_depth: 2
   html_document: default
   word_document: default
 graphics: yes
@@ -155,7 +157,7 @@ There are none, we can conclude that all the predictors are relevant for the mom
 ### Check missing Values 
 TODO: document the observations and criteria to exclude the observations
 
-```{r Check missing values, include=FALSE}
+```{r Check missing values, echo=FALSE,include=FALSE}
 # First check N/A values
 which(is.na(credit),arr.ind=TRUE) 
 md.pattern(credit)
@@ -181,7 +183,7 @@ num.zeros.index<-check.zero.rows(credit[,c(6:23)])
 stopCluster(cl)
 ```
 
-```{r Check missing values output, echo=FALSE}
+```{r Check missing values output, echo=FALSE,comment=NA}
 length(num.zeros.index)
 round((length(num.zeros.index)*100)/dim(credit)[1],2)
 
@@ -196,19 +198,22 @@ So in total there are 495 of this kind of data, it represents 1.68% of the data,
 
 ## Check distribution of Data  
 Let's check the distribution of all the variables. For the continuous ones we can plot an histogram, for the categorical ones, a barplot with the distribution within the levels of the variable.
-```{r fig1,fig.width=18,fig.height=18,message=TRUE,fig.cap="Variable distribution", include=FALSE}
+```{r ,echo=FALSE,include=FALSE}
 #knitr::opts_chunk$set(cache=TRUE)
 setwd(plotDir)
 jpeg("Variable_Distribution.jpeg",width = 2000,height = 900,units = "px",res = 150)
 grid.plot(credit,15)
 dev.off()
+```
+![Variable distribution](Variable_Distribution.jpeg)
+```{r ,echo=FALSE, include=FALSE}
 setwd(codeDir)
 ```
 with this plot, we can see that the continuous data is very skewed, and not normal at all, we will apply some transformations to make the data more "normal"
 
 ## Outlier Detection   
 
-```{r Local Oulier Factor, echo=FALSE}
+```{r Local Oulier Factor, echo=FALSE,fig.cap="Mahalanobis outlier detection"}
 #***************************************************************************#
 #                            2.4 Outlier Detection                          #
 #***************************************************************************#
@@ -250,9 +255,9 @@ remove(outlier.scores)
 
 ## Detection of most correlated continuous variables 
 
-```{r, echo=FALSE}
+```{r, echo=FALSE,fig.cap="Correlation plot"}
 invisible(require(corrplot))
-par(mfrow=c(2,2))
+par(mfrow=c(1,2))
 corrplot(cor(credit[,-factor.indexes]), method="circle")
 corrplot(cor(credit[,-factor.indexes]), method="number")
 par(mfrow=c(1,1))
@@ -263,7 +268,8 @@ From the correlation calculus, we can see that there is a clear relationship bet
 In this part we are going to analyze each one of the categorial variables with respect to the response variable, if there is anything interesting that gives us more information.
 
 ### Sex 
-```{r, echo=FALSE}
+```{r, echo=FALSE,comment=NA,fig.cap="Y - Sex relationship"}
+par(mfrow=c(1,2))
 # How many males and females do we have?
 initial.barplot(credit,SEX)
 # We have 34 % more females than males in our dataset.
@@ -282,7 +288,8 @@ cbind(freq.table, p.table)
 
 ### Education
 
-```{r, echo=FALSE}
+```{r, echo=FALSE,comment=NA,fig.cap="Y - Education relationship"}
+par(mfrow=c(1,2))
 # a count of all the values to get an initial idea
 initial.barplot(credit,EDUCATION)
 # we can see that the 4 "unknown" values are very few, comparing them with the others
@@ -306,7 +313,8 @@ cbind(freq.table, p.table)
 
 ### Marriage
 
-```{r, echo=FALSE}
+```{r, echo=FALSE,comment=NA,fig.cap="Y - Marriage relationship"}
+par(mfrow=c(1,2))
 # How are the levels of the variable distributed?
 initial.barplot(credit,MARRIAGE)
 
@@ -330,21 +338,26 @@ cbind(freq.table, p.table)
 
 ## Age
 
-```{r, echo=FALSE}
+```{r, echo=FALSE,comment=NA,fig.cap="Y - Age relationship"}
+par(mfrow=c(1,2))
 # Even AGE is not categorical, we wanted to do an analysis to check how the age are related to the 
 # default or not default category
 # a count of all the values to get an initial idea
 initial.barplot(credit,AGE)
+```
 
+```{r, include=FALSE}
 invisible(require(plyr))
 head(arrange(as.data.frame(table(credit$AGE)),desc(Freq)), n = 5)
 # from this analysis, it is obvious that the quantity of users of credit cards, are centered around
 # 29 years old
-
 # Again a check of the proportions will be useful
 freq.table <- table(credit$AGE, credit$default.payment.next.month)
 p.table <- round(prop.table(freq.table, margin = 1), digits = 3)
 (age.df<-as.data.frame(cbind(age=row.names(p.table),freq.table, p.table)))
+```
+
+```{r, echo=FALSE,comment=NA}
 head(arrange(age.df,desc(age.df$`Not default`)), n = 5)
 # in this case, the proportions for not default are around 31 years, somewhat closed from the total
 # around 29, but for 57 years, there is also a higher ratio in here, the default parameter is dominant
@@ -400,7 +413,7 @@ credit.PCA <- PCA(credit,quali.sup = factor.indexes,quanti.sup = c(18:23) ,ncp=3
 summary(credit.PCA)
 ```
 
-```{r, echo=FALSE}
+```{r, echo=FALSE,fig.cap="PCA Colored according to cos2"}
 require(factoextra)
 #PCA Colored according to the quality of representation of the variables
 fviz_pca_var(credit.PCA, col.var="cos2") +
@@ -409,7 +422,7 @@ scale_color_gradient2(low="white", mid="blue", high="red", midpoint=0.5) + theme
 # For some of the variables, more than 2 components are required to perfectly represent the data. In this case the variables are positioned inside the circle of correlations.
 ```
 
-```{r, echo=FALSE}
+```{r, echo=FALSE,fig.cap="PCA individuals Colored according to cos2"}
 #Plot the quality of the representation for individuals on the principal components and colour them using the cos2 values
 fviz_pca_ind(credit.PCA, col.ind="cos2") +
 scale_color_gradient2(low="white", mid="blue", 
@@ -475,11 +488,17 @@ In this exploratory analyzis, we first check the balance of the sample with resp
 rbind(noquote(table(credit$default.payment.next.month)),sapply(prop.table(table(credit$default.payment.next.month))*100, function(u) noquote(sprintf('%.2f%%',u))))
 ```
 As we can see, the distribution of the data is unequal, if we take train and test samples as it is, we could get the model to ignore one of the classes (in this case the Default one, as it is the smallest), so we need to solve this in a simple way, we will take at random the same number of Not Default samples as the Default ones. Once this is done, we can split this subset into train and test data.
-
-```{r Variable importance, include=FALSE}
+We are interested in check what is the importance of each predictor over the tree, for this we will use Boruta package, that finds relevant features by comparing the original attributes importance with importance achievable at random, estimated using their own permuted copies. 
+The dataset contains 26994 observations, this will take a long time for Boruta to compute the values, so a stratified sample will be created, taking 10% of the total data and all the groups from *default.payment.next.month*, because this is our predictive variable. Let's check the distribution of the variables after the stratification sampling:
+```{r Variable importance - stratified sample, echo=FALSE}
 invisible(require(Boruta))
-# first to speed up things, we take an 30% stratified random sample, from all the groups in default.payment.next.month
-credit.stratified<-stratified(credit, "default.payment.next.month", 0.3)
+# first to speed up things, we take an 10% stratified random sample, from all the groups in default.payment.next.month
+credit.stratified<-stratified(credit, "default.payment.next.month", 0.1)
+#checking the distribution values
+rbind(noquote(table(credit.stratified$default.payment.next.month)),sapply(prop.table(table(credit.stratified$default.payment.next.month))*100, function(u) noquote(sprintf('%.2f%%',u))))
+```
+So we confirm that indeed it is the 20% of the data, exactly what we wanted. Let's proceed with Boruta.
+```{r Variable importance, include=FALSE}
 cl <- makeCluster(detectCores())
 registerDoParallel(cl)
 credit.importance <- Boruta(default.payment.next.month~., data = credit.stratified, doTrace = 2)
@@ -487,7 +506,7 @@ stopCluster(cl)
 print(credit.importance)
 ```
 
-```{r Variable importance - Plot, echo=FALSE}
+```{r Variable importance - Plot, echo=FALSE,fig.cap="Importance plot"}
 #plot boruta data, from https://www.analyticsvidhya.com/blog/2016/03/select-important-variables-boruta-package/
 plot(credit.importance, xlab = "", xaxt = "n")
 lz<-lapply(1:ncol(credit.importance$ImpHistory),function(i)
@@ -509,22 +528,23 @@ table(credit.balanced$default.payment.next.month)
 
 train.indexes <- sample(nrow(credit.balanced), size = ceiling(length(subsample.index)*0.7))
 
-credit.train <- credit.balanced[train.indexes,]
-credit.test <- credit.balanced[-train.indexes,]
+credit.train <- as.numeric(unlist(row.names(credit.balanced[train.indexes,])))
+credit.test <- as.numeric(unlist(row.names(credit.balanced[-train.indexes,])))
 
 ```
 
 ```{r initial linear model, echo=FALSE}
 
 # Checking PCA
-credit.glm<-glm((as.numeric(default.payment.next.month)-1) ~ ., data=credit.train[,-c(2,3,4,6,7,8,9,10,11)])
+credit.glm<-glm((as.numeric(default.payment.next.month)-1) ~ ., data=credit[credit.train,-c(2,3,4,6,7,8,9,10,11)])
 print(summary(credit.glm))
 
 ```
 
 
 ```{r Desicion tree definition, echo=FALSE}
-credit.tree <- rpart(Adjusted ~ ., data=credit[credit.train,], control=rpart.control(cp=0.01, xval=10))
+invisible(require(rattle))
+credit.tree <- rpart(default.payment.next.month ~ ., data=credit[credit.train,], control=rpart.control(cp=0.01, xval=10))
 #feature selection is done intrinseclt
 #cp is the complexity parameter, is the alpha. Maximum is 0
 #xval 10 fold cross validation 
@@ -550,7 +570,7 @@ print(credit.tree.leaf)
 
 ```{r Desicion tree - complexity parameter, echo=FALSE}
 plot(credit.tree$cptable[,2],credit.tree$cptable[,3],type="l",xlab="size of the tree",ylab="Relative impurity",main="R(t)")
-lines(credit.tree$cptable[,2],audit.tree$cptable[,4],col="blue")
+lines(credit.tree$cptable[,2],credit.tree$cptable[,4],col="blue")
 legend("topright",c("R(T)training","R(T)cv"),col=c("black","blue"),lty=1)
 #missclasification always decrease, tend to 0
 credit.tree
@@ -559,7 +579,7 @@ par(mar=c(3,3,4,3))
 plotcp(credit.tree)
 ```
 
-```{r Desicion tree - Prunning, echo=FALSE}
+```{r Desicion tree - Prunning, echo=FALSE, fig.cap="Variable importance"}
 #optimal one is the lowest one, shows sd, lets take it
 credit.tree$cptable <- as.data.frame(credit.tree$cptable)
 ind <- which.min(credit.tree$cptable$xerror)
@@ -582,24 +602,24 @@ barplot(p1$variable.importance, main="Variable importance")
 ```{r Desicion tree - Obtained values, echo=FALSE}
 pred.test <- predict(p1, newdata=credit[credit.test,],type="class")
 
-library(caret)
+invisible(library(caret))
 confusionMatrix(pred.test, credit[credit.test,]$default.payment.next.month,mode = "prec_recall")
 ```
 
 
 ```{r Random forest, echo=FALSE}
-library(randomForest)
-credit.rf <- randomForest(default.payment.next.month ~ ., data=credit[credit.train,], mtry=3, importance=TRUE, xtest=credit[-credit.train,-10], ytest=credit[-learn,10], nodesize=50, maxnodes=14, keep.forest=TRUE)
-summary(credit.rf)
-credit.rf$confusion
-importance(credit.rf)
-print(credit.rf)
-varImpPlot(credit.rf)
-
-pred.test.rf <- predict(credit.rf, credit[credit.test,],type="class")
-
-library(caret)
-confusionMatrix(pred.test.rf, credit[credit.test,]$Adjusted,mode = "prec_recall")
+# library(randomForest)
+# credit.rf <- randomForest(default.payment.next.month ~ ., data=credit[credit.train,], mtry=3, importance=TRUE, xtest=credit[credit.test,-24], ytest=credit[credit.test,24], nodesize=50, maxnodes=14, keep.forest=TRUE)
+# summary(credit.rf)
+# credit.rf$confusion
+# importance(credit.rf)
+# print(credit.rf)
+# varImpPlot(credit.rf)
+# 
+# pred.test.rf <- predict(credit.rf, credit[credit.test,],type="class")
+# 
+# library(caret)
+# confusionMatrix(pred.test.rf, credit[credit.test,]$Adjusted,mode = "prec_recall")
 ```
 
 ## Conclusions

@@ -307,6 +307,25 @@ stratified <- function(df, group, size, select = NULL,
   }
 }
 
+#' @title Creates a latex table from the inputted dataframe
+#'
+#' @description
+#' Saves a latex table in the specified location
+#' @param df: The input data.frame
+#' @param type: the type of the table. Could be 'latex'
+#' @param caption: caption for the table
+#' @param align: array of string containing the size of the columns. If unspecified will use default values. An example
+#' to get 5 columns with the second one with 10cm wide: align.columns = c("rp{10cm}rrr")
+#' @param file: name of the output file. Must contain .tex at the end
+#' 
+#' @return log transformation for all the values
+#' 
+#' @examples
+create.latex.table<-function(df,type,caption,align,file){
+  require(xtable)
+  ifelse(is.null(align),print(xtable(df,type=type,caption=caption),file=file),print(xtable(df,type=type,caption=caption,align = align.columns),file=file))
+}
+
 ####################ORIGINAL FUNCTIONS########################################
 # Original plotting·
 # ggplot(credit, aes(x = 0, y = LIMIT_BAL)) +
