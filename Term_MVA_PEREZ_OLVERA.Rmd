@@ -7,7 +7,6 @@ date: "June 1st 2017"
 output:
   pdf_document:
     fig_caption: yes
-    latex_engine: xelatex
   html_document: default
   word_document: default
 graphics: yes
@@ -156,7 +155,7 @@ There are none, we can conclude that all the predictors are relevant for the mom
 ### Check missing Values 
 TODO: document the observations and criteria to exclude the observations
 
-```{r Check missing values, echo=FALSE}
+```{r Check missing values, include=FALSE}
 # First check N/A values
 which(is.na(credit),arr.ind=TRUE) 
 md.pattern(credit)
@@ -180,6 +179,9 @@ cl <- makeCluster(detectCores())
 registerDoParallel(cl)
 num.zeros.index<-check.zero.rows(credit[,c(6:23)])
 stopCluster(cl)
+```
+
+```{r Check missing values output, echo=FALSE}
 length(num.zeros.index)
 round((length(num.zeros.index)*100)/dim(credit)[1],2)
 
@@ -194,7 +196,7 @@ So in total there are 495 of this kind of data, it represents 1.68% of the data,
 
 ## Check distribution of Data  
 Let's check the distribution of all the variables. For the continuous ones we can plot an histogram, for the categorical ones, a barplot with the distribution within the levels of the variable.
-```{r fig1,fig.width=18,fig.height=18,message=TRUE,fig.cap="Variable distribution", echo=TRUE}
+```{r fig1,fig.width=18,fig.height=18,message=TRUE,fig.cap="Variable distribution", include=FALSE}
 #knitr::opts_chunk$set(cache=TRUE)
 setwd(plotDir)
 jpeg("Variable_Distribution.jpeg",width = 2000,height = 900,units = "px",res = 150)
@@ -249,13 +251,13 @@ remove(outlier.scores)
 ## Detection of most correlated continuous variables 
 
 ```{r, echo=FALSE}
-require(corrplot)
+invisible(require(corrplot))
 par(mfrow=c(2,2))
-corrplot(cor(credit.continuos), method="circle")
-corrplot(cor(credit.continuos), method="number")
+corrplot(cor(credit[,-factor.indexes]), method="circle")
+corrplot(cor(credit[,-factor.indexes]), method="number")
 par(mfrow=c(1,1))
 ```
-From the correlation calculus, we can see that there is a clear relationship between the values of BILL_AMT(x) and BILL_AMT(x+1), we will check this with PCA, to observe if there is a dimension that it is not obviuos to capture and to decide wich variables could be added.
+From the correlation calculus, we can see that there is a clear relationship between the values of BILL_AMT(x) and BILL_AMT(x+1), so we will use this variables for the PCA, using the other categorical and continuous variables as a supplementary one to observe if there is a dimension that it is not obviuos to capture.
 
 ## Detection of (correlation) of categorical variables 
 In this part we are going to analyze each one of the categorial variables with respect to the response variable, if there is anything interesting that gives us more information.
@@ -334,7 +336,7 @@ cbind(freq.table, p.table)
 # a count of all the values to get an initial idea
 initial.barplot(credit,AGE)
 
-require(plyr)
+invisible(require(plyr))
 head(arrange(as.data.frame(table(credit$AGE)),desc(Freq)), n = 5)
 # from this analysis, it is obvious that the quantity of users of credit cards, are centered around
 # 29 years old
@@ -353,6 +355,8 @@ head(arrange(age.df,desc(age.df$Default)), n = 5)
 ```
 
 ## PCA Construction
+
+Based on our correlation matrix, we decided to take the BILL variables as the explanatory ones in PCA, in an initial exploratory PCA, 
 
 ```{r, include=FALSE}
 n<-nrow(credit.continuos)
@@ -389,16 +393,10 @@ rm(N,G,X,Xs,covX,eigX)
 gc()
 ```
 
-# ```{r, echo=FALSE}
-# require(FactoMineR)
-# #par(mfrow=c(2,2))
-# credit.continuos.Moutlier$default.payment.next.month <- credit.Moutlier$default.payment.next.month
-# credit.PCA1 <- PCA(credit.continuos.Moutlier,quali.sup = c(which(names(credit.continuos.Moutlier)==c("default.payment.next.month"))),ncp = e_ncp$ncp)
-# ```
 
-```{r, echo=FALSE}
-credit.continuos$default.payment.next.month <- credit$default.payment.next.month
-credit.PCA <- PCA(credit.continuos,quali.sup = c(which(names(credit.continuos)==c("default.payment.next.month"))),ncp=ncp)
+```{r, include=FALSE}
+bill.indexes<-grepl("PAY_AMT", names(credit))
+credit.PCA <- PCA(credit,quali.sup = factor.indexes,quanti.sup = c(18:23) ,ncp=3)
 summary(credit.PCA)
 ```
 
@@ -412,6 +410,13 @@ scale_color_gradient2(low="white", mid="blue", high="red", midpoint=0.5) + theme
 ```
 
 ```{r, echo=FALSE}
+#Plot the quality of the representation for individuals on the principal components and colour them using the cos2 values
+fviz_pca_ind(credit.PCA, col.ind="cos2") +
+scale_color_gradient2(low="white", mid="blue", 
+   high="red", midpoint=0.50) + theme_minimal()
+```
+
+```{r, echo=FALSE}
 # Coordinates of variables
 head(credit.PCA$var$coord)
 head(credit.PCA$var$contrib)
@@ -419,16 +424,10 @@ head(credit.PCA$var$contrib)
 dimdesc(credit.PCA)
 ```
 
-```{r, echo=FALSE}
-#Plot the quality of the representation for individuals on the principal components and colour them using the cos2 values 
-fviz_pca_ind(credit.PCA, col.ind="cos2") +
-scale_color_gradient2(low="white", mid="blue", 
-   high="red", midpoint=0.50) + theme_minimal()
-```
+### MCA Construction
 
 ```{r, echo=FALSE}
-credit.factors$default.payment.next.month <- credit.factors$default.payment.next.month
-credit.MCA<-MCA(credit.factors, quali.sup = c(which(names(credit.factors)==c("default.payment.next.month"))),level.ventil = 0.2,ncp=20)
+credit.MCA<-MCA(credit, quali.sup = 24, quanti.sup = c(1,5,12:23) ,level.ventil = 0.2,ncp=20)
 ```
 
 ```{r, echo=FALSE}
@@ -437,25 +436,28 @@ dimdesc(credit.MCA, axes=1:2, proba=0.05)
 fviz_mca_var(credit.MCA, select.var = list(cos2 = 10))
 ```
 
+### Cluster Definition
+
 ```{r, include=TRUE}
 #*****************************************************************************************#
 #                               Definition of clusters                                    #
 #*****************************************************************************************#
 # Number of clusters
+
+set.seed(42)
+
+plotPCA(credit.PCA$ind$coord[,1:3], 5)
+
+credit.hcpc <- HCPC(credit.MCA)
+
 #library(rpud)  
-#credit.hcpc <- HCPC(credit.MCA)
-#credit.hcpc <- rpuHclust(credit.MCA)
+#d <- rpuDist(credit) 
+#credit.hcpc <- rpuHclust(d)
 #cleaning up the house
-#rm(credit.hcpc)
-#gc()
+rm(credit.hcpc)
+gc()
 ```
 
-
-```{r, include=TRUE}
-#*****************************************************************************************#
-#                                  2.7 Feature Extraction                                #
-#****************************************************************************************#
-```
 
 ```{r, include=FALSE}
 
@@ -470,69 +472,143 @@ rbind(noquote(table(credit$default.payment.next.month)),sapply(prop.table(table(
 ```
 So we first deal with this, using 
 
-```{r, include=TRUE}
+```{r Variable importance, include=FALSE}
 #*****************************************************************************************#
 #                              Initial model assumptions                                  #
 #*****************************************************************************************#
-# Checking PCA
+invisible(require(Boruta))
+# first to speed up things, we take an 30% stratified random sample, from all the groups in default.payment.next.month
+credit.stratified<-stratified(credit, "default.payment.next.month", 0.3)
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+credit.importance <- Boruta(default.payment.next.month~., data = credit, doTrace = 2)
+stopCluster(cl)
+print(credit.importance)
+```
 
+```{r Variable importance -Plot, echo=FALSE}
+#plot boruta data, from https://www.analyticsvidhya.com/blog/2016/03/select-important-variables-boruta-package/
+plot(credit.importance, xlab = "", xaxt = "n")
+lz<-lapply(1:ncol(credit.importance$ImpHistory),function(i)
+credit.importance$ImpHistory[is.finite(credit.importance$ImpHistory[,i]),i])
+names(lz) <- colnames(credit.importance$ImpHistory)
+Labels <- sort(sapply(lz,median))
+axis(side = 1,las=2,labels = names(Labels), at = 1:ncol(credit.importance$ImpHistory), cex.axis = 0.7)
+```
 
-#credit.glm<-glm()
+```{r, echo=FALSE}
+#create test and train sample
+#first we check target variable distribution
+tt<-table(credit$default.payment.next.month)
+```
+As we can see, the distribution of the data is unequal, if we take train and test samples as it is, we could get the model to ignore one of the classes (in this case the Default one, as it is the smallest), so we need to solve this in a simple way, we will take at random the same number of Not Default samples as the Default ones. Once this is done, we can split this subset into train and test data.
 
-#prediction directly with log
-require(caret)
-# NNModel2 <- train(Train[,-10], trainResponse,
-#                   method = "nnet",
-#                   preProcess = c("pca"),
-#                   trControl= trainControl(method = "cv", number = 10),
-#                   tuneGrid = expand.grid(.size=c(1,5,10, 15, 20, 25, 30, 35, 40),.decay=c(0,0.001,0.1, 0.2, 0.3, 0.4, 0.5, 1, 2, 3, 4)))
+```{r sampling balance and subsampling, echo=FALSE}
+set.seed(123)
+nd.indexes<-sample(which(credit$default.payment.next.month == "Not default"),6081)
+d.indexes<-which(credit$default.payment.next.month == "Default")
+subsample.index<-sort(c(nd.indexes,d.indexes))
+credit.balanced<-credit[subsample.index,]
 
-n.rows <- nrow(credit)
-n.cols <- ncol(credit)
+table(credit.balanced$default.payment.next.month)
 
-#initial linear model -> this must be reduced either by factor or dimensionality
-credit.lm<-lm(default.payment.next.month~.,data = credit)
-# plot(credit[,-10],credit[,10])
-# abline(credit.lm)
+train.indexes <- sample(nrow(credit.balanced), size = ceiling(length(subsample.index)*0.7))
 
-# get just one third for validation, the rest to train
-test.indexes <- sample(1:n.rows,size = floor(n.rows*0.3),replace = FALSE)
-credit.test <- credit[test.indexes,]
-credit.train <- credit[-test.indexes,]
-
-# method to do cross validation for tunning
-
-#array for the best parameters
-# c.best <- c()
-# epsilon.best <- c()
-# gamma.best<-c()
-# polynomial.degree.best<-c()
-
-#array for computation time
-# compu.time<- c()
-# 
-# # use svm
-# model2 <- svm(credit.train[,-25],credit.train[,25],epsilon=0.01,gamma=200, C=100)
-# lines(credit.train[,-25],predict(model2,credit.train[,-25]),col="green")
-# credit.svm<-ksvm(credit.train[,-25],credit.train[,25],epsilon=0.01, C=100)
-# 
-# 
-# library(rpart)
-# library(rpart.plot)
-# library(rattle)
-# p2 = rpart(default.payment.next.month ~ ., data=credit, control=rpart.control(cp=0.001, xval=10))
-# p2
-# plot(p2)
-# 
-# # THE SEQUENCE OF TREES WITH THEIR COMPLEXITY PARAMETER AND COMPUTED ERROR IN THE TRAINING SAMPLE AND BY CROSSVALIDATION
-# printcp(p2)
-# 
-# plot(p2$cptable[,2],p2$cptable[,3],type="l",xlab="size of the tree",ylab="Relative impurity",main="R(t)")
-# lines(p2$cptable[,2],p2$cptable[,4],col="blue")
-# legend("topright",c("R(T)training","R(T)cv"),col=c("black","blue"),lty=1)
-# plotcp(p2)
+credit.train <- credit.balanced[train.indexes,]
+credit.test <- credit.balanced[-train.indexes,]
 
 ```
+
+```{r initial linear model, echo=FALSE}
+
+# Checking PCA
+credit.glm<-glm((as.numeric(default.payment.next.month)-1) ~ ., data=credit.train[,-c(2,3,4,6,7,8,9,10,11)])
+print(summary(credit.glm))
+
+```
+
+
+```{r Desicion tree definition, echo=FALSE}
+credit.tree <- rpart(Adjusted ~ ., data=credit[credit.train,], control=rpart.control(cp=0.01, xval=10))
+#feature selection is done intrinseclt
+#cp is the complexity parameter, is the alpha. Maximum is 0
+#xval 10 fold cross validation 
+#with this we get the maximal tree
+fancyRpartPlot(credit.tree)
+printcp(credit.tree)
+```
+
+```{r Desicion tree - number of partitions, echo=FALSE}
+credit.tree.leaf=subset(credit.tree$frame, var=="<leaf>",select=c(n,yval2))
+num_leaf = row.names(credit.tree.leaf)
+credit.tree.leaf=data.frame(credit.tree.leaf$n,credit.tree.leaf$yval2)  # concatenating the two outputs
+names(credit.tree.leaf) = c("n_train","class_train","n1_train","n2_train","p1_train","p2_train","probnode_train")
+row.names(credit.tree.leaf) = num_leaf
+credit.tree.leaf=credit.tree.leaf[order(-credit.tree.leaf$p2_train),] # ordering by decreasing positive probabilities
+
+credit.tree.leaf$cum_n1 <- cumsum(credit.tree.leaf$n1_train)/sum(credit.tree.leaf$n1_train)
+credit.tree.leaf$cum_n2 <- cumsum(credit.tree.leaf$n2_train)/sum(credit.tree.leaf$n2_train)
+credit.tree.leaf$dif_cum <- credit.tree.leaf$cum_n2 - credit.tree.leaf$cum_n1
+
+print(credit.tree.leaf)
+```
+
+```{r Desicion tree - complexity parameter, echo=FALSE}
+plot(credit.tree$cptable[,2],credit.tree$cptable[,3],type="l",xlab="size of the tree",ylab="Relative impurity",main="R(t)")
+lines(credit.tree$cptable[,2],audit.tree$cptable[,4],col="blue")
+legend("topright",c("R(T)training","R(T)cv"),col=c("black","blue"),lty=1)
+#missclasification always decrease, tend to 0
+credit.tree
+#plot the complexity parameter
+par(mar=c(3,3,4,3))
+plotcp(credit.tree)
+```
+
+```{r Desicion tree - Prunning, echo=FALSE}
+#optimal one is the lowest one, shows sd, lets take it
+credit.tree$cptable <- as.data.frame(credit.tree$cptable)
+ind <- which.min(credit.tree$cptable$xerror)
+
+xerr <- credit.tree$cptable$xerror[ind]
+xstd <- credit.tree$cptable$xstd[ind]
+
+i <- 1
+while (credit.tree$cptable$xerror[i] > xerr+xstd) i = i+1
+
+alfa <- credit.tree$cptable$CP[i]
+
+# prune the tree
+p1 <- prune(credit.tree,cp=alfa)
+p1
+
+barplot(p1$variable.importance, main="Variable importance")
+```
+
+```{r Desicion tree - Obtained values, echo=FALSE}
+pred.test <- predict(p1, newdata=credit[credit.test,],type="class")
+
+library(caret)
+confusionMatrix(pred.test, credit[credit.test,]$default.payment.next.month,mode = "prec_recall")
+```
+
+
+```{r Random forest, echo=FALSE}
+library(randomForest)
+credit.rf <- randomForest(default.payment.next.month ~ ., data=credit[credit.train,], mtry=3, importance=TRUE, xtest=credit[-credit.train,-10], ytest=credit[-learn,10], nodesize=50, maxnodes=14, keep.forest=TRUE)
+summary(credit.rf)
+credit.rf$confusion
+importance(credit.rf)
+print(credit.rf)
+varImpPlot(credit.rf)
+
+pred.test.rf <- predict(credit.rf, credit[credit.test,],type="class")
+
+library(caret)
+confusionMatrix(pred.test.rf, credit[credit.test,]$Adjusted,mode = "prec_recall")
+```
+
+## Conclusions
+## Further Work
 
 ```{r generateBibliography, echo=FALSE, eval=TRUE, message=FALSE, warning=FALSE}
 require("knitcitations")
