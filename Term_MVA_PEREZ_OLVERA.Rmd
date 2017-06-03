@@ -104,7 +104,7 @@ data.path <- glue(dataDir,"/","default_of_credit_card_clients.csv")
 credit <- read.table(data.path, header = TRUE,sep = ";")
 ```
 
-```{r Data first output, include=FALSE,comment=NA}
+```{r Data first output, echo=FALSE,comment=NA}
 dim(credit)
 summary(credit)
 str(credit)
@@ -444,18 +444,18 @@ fviz_mca_var(credit.MCA, select.var = list(cos2 = 10))
 #*****************************************************************************************#
 # Number of clusters
 
-set.seed(42)
+set.seed(123)
 
-plotPCA(credit.PCA$ind$coord[,1:3], 5)
+#plotPCA(credit.PCA$ind$coord[,1:3], 5)
 
-credit.hcpc <- HCPC(credit.MCA)
+#credit.hcpc <- HCPC(credit.MCA)
 
-#library(rpud)  
-#d <- rpuDist(credit) 
-#credit.hcpc <- rpuHclust(d)
-#cleaning up the house
-rm(credit.hcpc)
-gc()
+# library(rpud)
+# d <- rpuDist(credit)
+# credit.hcpc <- rpuHclust(d)
+# #cleaning up the house
+# rm(credit.hcpc)
+# gc()
 ```
 
 
@@ -464,29 +464,30 @@ gc()
 
 ```
 
-
-We will create a PCA for all the continuos variables and a MCA for the categorical ones, determining the relation that all the variables has to each other. In this exploratory analyzis, we first check the balance of the sample with respect to our response variable:
+## Construction of models
+This dataset involves obviously a prediction problem. The multivariate analysis we done so far had helped us to identify concepts that were not so obvious. In this part we will construct Random forest and a Desicion tree predictive models, then check and compare their predictive values. 
+In this exploratory analyzis, we first check the balance of the sample with respect to our response variable:
 ```{r, echo=FALSE,eval=TRUE,comment=NA}
-# We first check if the test and train samples are balanced
-rbind(noquote(table(credit$default.payment.next.month)),sapply(prop.table(table(credit$default.payment.next.month))*100, function(u) noquote(sprintf('%.2f%%',u))))
-```
-So we first deal with this, using 
-
-```{r Variable importance, include=FALSE}
 #*****************************************************************************************#
 #                              Initial model assumptions                                  #
 #*****************************************************************************************#
+# We first check if the test and train samples are balanced
+rbind(noquote(table(credit$default.payment.next.month)),sapply(prop.table(table(credit$default.payment.next.month))*100, function(u) noquote(sprintf('%.2f%%',u))))
+```
+As we can see, the distribution of the data is unequal, if we take train and test samples as it is, we could get the model to ignore one of the classes (in this case the Default one, as it is the smallest), so we need to solve this in a simple way, we will take at random the same number of Not Default samples as the Default ones. Once this is done, we can split this subset into train and test data.
+
+```{r Variable importance, include=FALSE}
 invisible(require(Boruta))
 # first to speed up things, we take an 30% stratified random sample, from all the groups in default.payment.next.month
 credit.stratified<-stratified(credit, "default.payment.next.month", 0.3)
 cl <- makeCluster(detectCores())
 registerDoParallel(cl)
-credit.importance <- Boruta(default.payment.next.month~., data = credit, doTrace = 2)
+credit.importance <- Boruta(default.payment.next.month~., data = credit.stratified, doTrace = 2)
 stopCluster(cl)
 print(credit.importance)
 ```
 
-```{r Variable importance -Plot, echo=FALSE}
+```{r Variable importance - Plot, echo=FALSE}
 #plot boruta data, from https://www.analyticsvidhya.com/blog/2016/03/select-important-variables-boruta-package/
 plot(credit.importance, xlab = "", xaxt = "n")
 lz<-lapply(1:ncol(credit.importance$ImpHistory),function(i)
@@ -496,13 +497,7 @@ Labels <- sort(sapply(lz,median))
 axis(side = 1,las=2,labels = names(Labels), at = 1:ncol(credit.importance$ImpHistory), cex.axis = 0.7)
 ```
 
-```{r, echo=FALSE}
-#create test and train sample
-#first we check target variable distribution
-tt<-table(credit$default.payment.next.month)
-```
-As we can see, the distribution of the data is unequal, if we take train and test samples as it is, we could get the model to ignore one of the classes (in this case the Default one, as it is the smallest), so we need to solve this in a simple way, we will take at random the same number of Not Default samples as the Default ones. Once this is done, we can split this subset into train and test data.
-
+As mentioned before
 ```{r sampling balance and subsampling, echo=FALSE}
 set.seed(123)
 nd.indexes<-sample(which(credit$default.payment.next.month == "Not default"),6081)
