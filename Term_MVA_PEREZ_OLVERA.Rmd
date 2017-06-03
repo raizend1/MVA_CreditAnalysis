@@ -5,11 +5,11 @@ author:
 - name: Alejandro Olvera
 date: "June 1st 2017"
 output:
-  word_document: default
   pdf_document:
     fig_caption: yes
     latex_engine: xelatex
   html_document: default
+  word_document: default
 graphics: yes
 bibliography: bibliography.bib
 ---
@@ -443,11 +443,11 @@ fviz_mca_var(credit.MCA, select.var = list(cos2 = 10))
 #*****************************************************************************************#
 # Number of clusters
 #library(rpud)  
-credit.hcpc <- HCPC(credit.MCA)
+#credit.hcpc <- HCPC(credit.MCA)
 #credit.hcpc <- rpuHclust(credit.MCA)
 #cleaning up the house
-rm(credit.hcpc)
-gc()
+#rm(credit.hcpc)
+#gc()
 ```
 
 
