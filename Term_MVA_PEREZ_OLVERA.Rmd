@@ -526,15 +526,15 @@ setwd(codeDir)
 
 ```{r, echo=FALSE}
 #*****************************************************************************************#
-#                               Definition of clusters                                    #
+#   Definition of clusters   (Clustering)                                 #
 #*****************************************************************************************#
-#Generate the hierarchical structure. We can see 5 clustersin the first insight.
+#Generate the hierarchical structure. We can see 5 clusters in the first insight.
 Psi = credit.PCA$ind$coord[,1:nd]
 hc = hclust(dist(Psi), method = "ward.D2")
 plot(hc)
 abline(h=120, col="red")
 #rect.hclust(X.hc, k=5, border = "red")
-barplot(X.hc$height[(nrow(Psi)-20):(nrow(Psi)-1)])
+barplot(hc$height[(nrow(Psi)-20):(nrow(Psi)-1)])
 
 #Cut the tree with the clusters defined. Then we generate the centers for the k-means and we do that.
 nc = 5
@@ -552,8 +552,7 @@ legend("topright",c("c1","c2","c3","c4","c5"),pch=20,col=c(1:5))
 catdes(cbind(as.factor(km$cluster), credit), num.var = 1, proba = 0.05, row.w = NULL)
 ```
 
-We have generated 5 classes according the inspection that we have done in the data. Let's talk about each class and
-what values should have the individual to pertain in this class. The classes are labeled in the same order that in the previous plot:
+We have generated 5 classes according the inspection that we have done in the data. Let's talk about each class and what values should have the individual to pertain in this class. The classes are labeled in the same order that in the previous plot:
 
  !!!!!  c1  !!!!! 
 ** Categorical Variables**
@@ -622,8 +621,8 @@ It seems the most difficult class to classify.
 ** Categorical Variables**
   - 52% have as Education="Univ"". 15% from "H. School". 30% with "Grad."
   - 40% of individuals are males. 60% of individuals are females.  
-  - Around 75-85% of individuals have values of PAY_0, PAY_1, PAY_2, PAY_3, PAY_4, PAY_5 and PAY_6  equal to "URC". 
-    Around 14-16% of individuals have values of PAY0, PAY_1, PAY_2, PAY_3 and PAY_4  equal to "PD2". 
+  - Around 75-85% of individuals have values of PAY_0, PAY_2, PAY_3, PAY_4, PAY_5 and PAY_6  equal to "URC". 
+    Around 14-16% of individuals have values of PAY0, PAY_2, PAY_3 and PAY_4  equal to "PD2". 
     Around 12-13% of individuals have values of PAY_5 and PAY_6  equal to "PD1". 
 
 
