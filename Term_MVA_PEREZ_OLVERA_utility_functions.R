@@ -323,7 +323,7 @@ stratified <- function(df, group, size, select = NULL,
 #' @examples
 create.latex.table<-function(df,type,caption,align,file){
   require(xtable)
-  ifelse(missing(align),print(xtable(df,type=type,caption=caption),file=file),print(xtable(df,type=type,caption=caption,align = align),file=file))
+  ifelse(missing(align),print(xtable(data.frame(row = rownames(df),data.frame(df)),type=type,caption=caption,digits=-2),file=file,include.rownames = FALSE),print(xtable(data.frame(row = rownames(df),data.frame(df)),type=type,caption=caption,align = align),file=file,include.rownames = FALSE,digits=-2))
 }
 
 #' @title Saves a plot
@@ -347,6 +347,30 @@ save.plot<-function(plot,name,type,plotDir,width,height,res){
   ',deparse(substitute(plot)),';
   dev.off()')))
   setwd(codeDir)
+}
+
+#https://stackoverflow.com/questions/6988184/combining-two-data-frames-of-different-lengths
+cbindPad <- function(...){
+  args <- list(...)
+  n <- sapply(args,nrow)
+  mx <- max(n)
+  pad <- function(x, mx){
+    if (nrow(x) < mx){
+      nms <- colnames(x)
+      padTemp <- matrix(NA, mx - nrow(x), ncol(x))
+      colnames(padTemp) <- nms
+      if (ncol(x)==0) {
+        return(padTemp)
+      } else {
+        return(rbind(x,padTemp))
+      }
+    }
+    else{
+      return(x)
+    }
+  }
+  rs <- lapply(args,pad,mx)
+  return(do.call(cbind,rs))
 }
 
 ####################ORIGINAL FUNCTIONS########################################
