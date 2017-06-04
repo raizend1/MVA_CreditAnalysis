@@ -323,7 +323,7 @@ stratified <- function(df, group, size, select = NULL,
 #' @examples
 create.latex.table<-function(df,type,caption,align,file){
   require(xtable)
-  ifelse(is.null(align),print(xtable(df,type=type,caption=caption),file=file),print(xtable(df,type=type,caption=caption,align = align.columns),file=file))
+  ifelse(missing(align),print(xtable(df,type=type,caption=caption),file=file),print(xtable(df,type=type,caption=caption,align = align),file=file))
 }
 
 #' @title Saves a plot
