@@ -139,6 +139,10 @@ for(i in 6:11){
   levels(credit[,i]) <- c("NC", "PF","URC","PD1","PD2",
                           "PD3","PD4","PD5","PD6","PD7","PD8")
 }
+
+#Save the id's of each individual to a variable
+iden = rownames(credit)
+
 ```
 
 `r require(xtable)
@@ -442,6 +446,8 @@ gc()
 bill.indexes<-grepl("PAY_AMT", names(credit))
 credit.PCA <- PCA(credit,quali.sup = factor.indexes,quanti.sup = c(18:23) ,ncp=3)
 summary(credit.PCA)
+
+
 ```
 
 ```{r, echo=FALSE,fig.cap="PCA Colored according to cos2"}
@@ -466,6 +472,10 @@ scale_color_gradient2(low="white", mid="blue",
 # Coordinates of variables
 head(credit.PCA$var$coord)
 head(credit.PCA$var$contrib)
+credit.PCA$eig
+plot(credit.PCA$eig$eigenvalue,type="l")
+nd = 3  #nd contains the number of relevant dimensions taken
+
 #All the BILL_AMT are well represented and contribute the most to dim 1. LIMIT_BALL is more related to dim2
 dimdesc(credit.PCA)
 ```
@@ -488,30 +498,128 @@ fviz_mca_var(credit.MCA, select.var = list(cos2 = 10))
 #*****************************************************************************************#
 #                               Definition of clusters                                    #
 #*****************************************************************************************#
-# Number of clusters
+#Generate the hierarchical structure. We can see 5 clustersin the first insight.
+Psi = credit.PCA$ind$coord[,1:nd]
+hc = hclust(dist(Psi), method = "ward.D2")
+plot(hc)
+abline(h=120, col="red")
+#rect.hclust(X.hc, k=5, border = "red")
+barplot(X.hc$height[(nrow(Psi)-20):(nrow(Psi)-1)])
 
-set.seed(123)
+#Cut the tree with the clusters defined. Then we generate the centers for the k-means and we do that.
+nc = 5
+cutT = cutree(hc, nc)
+cdg = aggregate(as.data.frame(Psi),list(cutT),mean)[,2:(nd+1)]
+km = kmeans(Psi, centers = cdg)
 
-#plotPCA(credit.PCA$ind$coord[,1:3], 5)
+#Plot k-means results. We can distinguish 5 clusters easily.
+plot(Psi[,1],Psi[,2],type="n",main="Clustering in 5 classes")
+text(Psi[,1],Psi[,2], col=km$cluster, labels=iden, cex = 0.6)
+abline(h=0,v=0,col="gray")
+legend("topright",c("c1","c2","c3","c4","c5"),pch=20,col=c(1:5))
 
-#credit.hcpc <- HCPC(credit.MCA)
-
-# library(rpud)
-# d <- rpuDist(credit)
-# credit.hcpc <- rpuHclust(d)
-# #cleaning up the house
-# rm(credit.hcpc)
-# gc()
+#Values assigned to each class generated
+catdes(cbind(as.factor(km$cluster), credit), num.var = 1, proba = 0.05, row.w = NULL)
 ```
 
+We have generated 5 classes according the inspection that we have done in the data. Let's talk about each class and
+what values should have the individual to pertain in this class. The classes are labeled in the same order that in the previous plot:
 
-```{r, include=FALSE}
+ !!!!!  c1  !!!!! 
+** Categorical Variables**
+  - 73% of individuals are single 25% are married.
+  - 53% have as Education="Univ." and 32% have the "Grad.". 13% come from "H. School".
+  - Around 51-58% of individuals have values of PAY0, PAY_2, PAY_3, PAY_4, PAY_5 and PAY_6 equal to URC.
+    Around 16-18% of individuals have values of PAY0, PAY_2, PAY_3, PAY_4, PAY_5 and PAY_6 equal to PF.
+    
+  - 74% of individuals have "Not Default" in the "default.payment.next.month". 26% are in "Default".
+
+** Continuous Variables**
+  - PAY_AMT1, PAY_AMT2, PAY_AMT3, PAY_AMT4, PAY_AMT5 and PAY_AMT6 have quite lower values than the overall mean.
+  - BILL_AMT1, BILL_AMT2, BILL_AMT3, BILL_AMT4, BILL_AMT5 and BILL_AMT6 have quite lower values than the overall mean.
+  - LIMIT_BAL has a quite lower values than the overall mean.
+  - AGE with small lower values than the overall mean.
+  
+
+!!!! c2 !!!!! 
+** Categorical Variables**
+  - 46% of individuals are single 53% are married.
+  - 53% have as Education="Grad"" and 35% have the "Univ". 10% from "H. School".
+  - 35% of individuals are males. So, 65% will be females. 
+  
+  - Around 38-43% of individuals have values of PAY0, PAY_2, PAY_3, PAY_4, PAY_5 and PAY_6 equal to PF.
+    Around 26-33% of individuals have values of PAY0, PAY_2, PAY_3, PAY_4, PAY_5 and PAY_6 equal to NC.
+    Around 19-26% of individuals have values of PAY0, PAY_2, PAY_3, PAY_4, PAY_5 and PAY_6 equal to "URC".
+
+  - 85% of individuals have "Not Default" in the "default.payment.next.month". 15% are in "Default".
 
 
-```
+** Continuous Variables**
+  - PAY_AMT1, PAY_AMT2, PAY_AMT3, PAY_AMT4, PAY_AMT5 and PAY_AMT6 have a bit higher values than the overall mean.
+  - BILL_AMT1, BILL_AMT2, BILL_AMT3, BILL_AMT4, BILL_AMT5 and BILL_AMT6 have quite lower values than the overall mean.
+  - LIMIT_BAL has quite higher values than the overall mean.
+  - AGE have similar values with the overall mean.
+
+
+
+!!!!! c3  !!!!! 
+It seems the most difficult class to classify.
+** Categorical Variables**
+  - 27% of individuals are single 68% are married.
+  - 15% have as Education="Grad"". 35% from "H. School".
+  
+  - 45% of individuals are males. 55% of individuals are females.  
+  
+  - Around 11-18% of individuals have values of PAY0, PAY_1, PAY_2, PAY_3, PAY_4  equal to PD_2. 
+          However, PAY_5 has only 1% with PD2.
+      
+    Around 10-12% of individuals have values of PAY_0, PAY_5 and PAY_6 equal to PD1.
+    Around 18% of individuals have values of PAY_0, PAY_2 and PAY_3 equal to PF.
+    
+    Around 9%-12% of individuals have values of PAY_3, PAY_4, PAY_5 and PAY_6 equal to NC.
+          However, PAY_0 and PAY_2 have around 6-8% with NC.
+
+  - 72% of individuals have "Not Default" in the "default.payment.next.month". 28% are in "Default".
+
+
+** Continuous Variables**
+  - PAY_AMT1, PAY_AMT2, PAY_AMT3, PAY_AMT4, PAY_AMT5 and PAY_AMT6 have quite lower values than the overall mean.
+  - BILL_AMT1, BILL_AMT2, BILL_AMT3, BILL_AMT4, BILL_AMT5 and BILL_AMT6 have quite lower values than the overall mean.
+  - LIMIT_BAL has quite lower values than the overall mean.
+  - AGE has with a bit higher values than the overall mean.
+
+!!!!! c4  !!!!! 
+** Categorical Variables**
+  - 52% have as Education="Univ"". 15% from "H. School". 30% with "Grad."
+  - 40% of individuals are males. 60% of individuals are females.  
+  - Around 75-85% of individuals have values of PAY_0, PAY_1, PAY_2, PAY_3, PAY_4, PAY_5 and PAY_6  equal to "URC". 
+    Around 14-16% of individuals have values of PAY0, PAY_1, PAY_2, PAY_3 and PAY_4  equal to "PD2". 
+    Around 12-13% of individuals have values of PAY_5 and PAY_6  equal to "PD1". 
+
+
+** Continuous Variables**
+  - PAY_AMT1, PAY_AMT2, PAY_AMT3, PAY_AMT4, PAY_AMT5 and PAY_AMT6 with higher values than the overall mean.
+  - BILL_AMT1, BILL_AMT2, BILL_AMT3, BILL_AMT4, BILL_AMT5 and BILL_AMT6 quite higher values than the overall mean.
+  - LIMIT_BAL with a bit higher values than the overall mean.
+  - AGE has similar values than the overall mean.
+
+!!!!! c5  !!!!! 
+** Categorical Variables**
+  - 13% from "H. School". 38% with "Grad."
+  - 49.5% of individuals are single 49.5% are married.  
+
+  - Around 78-88% of individuals have values of PAY_0, PAY_1, PAY_2, PAY_3, PAY_4, PAY_5 and PAY_6  equal to "URC". 
+
+** Continuous Variables**
+  - PAY_AMT1, PAY_AMT2, PAY_AMT3, PAY_AMT4, PAY_AMT5 and PAY_AMT6 have very higher values than the overall mean.
+  - BILL_AMT1, BILL_AMT2, BILL_AMT3, BILL_AMT4, BILL_AMT5 and BILL_AMT6 very higher values than the overall mean.
+  - LIMIT_BAL with very higher values than the overall mean.
+  - AGE has similar values than the overall mean.
+
+
 
 ## Construction of models
-This dataset involves obviously a prediction problem. The multivariate analysis we done so far had helped us to identify concepts that were not so obvious. In this part we will construct Random forest and a Desicion tree predictive models, then check and compare their predictive values. 
+This dataset involves a prediction problem. The multivariate analysis we have done so far had helped us to identify concepts that were not so obvious. In this part we will construct Random forest and a Desicion tree predictive models, then check and compare their predictive values. 
 In this exploratory analyzis, we first check the balance of the sample with respect to our response variable:
 ```{r, echo=FALSE,eval=TRUE,comment=NA}
 #*****************************************************************************************#
