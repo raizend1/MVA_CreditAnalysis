@@ -268,6 +268,8 @@ credit.factors<-credit[,factor.indexes]
 #cleaning up the house
 remove(outlier.scores)
 
+save.plot(Moutlier(credit[,-factor.indexes],quantile=0.975,plot=TRUE),"Mahalanobis_outlier_detection.jpeg","jpeg",plotDir,"1500","900","150")
+
 # Altought, from all this, in some cases, the're could be just rich people in some variables, 
 # or really indebted people in others
 ```
@@ -301,6 +303,8 @@ grouped.count.plot(credit,SEX,default.payment.next.month)
 freq.table <- (with(data = credit, table(SEX, default.payment.next.month)))
 p.table <- round(prop.table(freq.table, margin = 1), digits = 3)
 cbind(freq.table, p.table)
+
+create.latex.table(df=cbind(freq.table, p.table),type="latex",caption="Y and Sex frequencies",file=glue(dataDir,"/y_sex.tex"))
 # As we see, the proportion of males with default payment is 0.242, and the proportion of females is 0.208.
 # Indeed, males in general have a higher tendency of default payment.
 ```
@@ -324,6 +328,9 @@ grouped.count.plot(credit,EDUCATION,default.payment.next.month)
 freq.table <- table(credit$EDUCATION, credit$default.payment.next.month)
 p.table <- round(prop.table(freq.table, margin = 1), digits = 3)
 cbind(freq.table, p.table)
+
+create.latex.table(df=cbind(freq.table, p.table),type="latex",caption="Y and Education frequencies",file=glue(dataDir,"/y_education.tex"))
+
 # The data have interesting results, first showing that not default are the most likely case in
 # the unknown categories, and also showing that even if university is the bigest tendency,
 # graduate level koreans are the ones that in proportion tend to be unable to fullfill their
@@ -348,6 +355,8 @@ freq.table <- (with(data = credit, table(MARRIAGE, default.payment.next.month)))
 p.table <- round(prop.table(freq.table, margin = 1), digits = 3)
 cbind(freq.table, p.table)
 
+create.latex.table(df=cbind(freq.table, p.table),type="latex",caption="Y and Marriage frequencies",file=glue(dataDir,"/y_marriage.tex"))
+
 # As we can see, the proportion of 'Married' individuals with default payement is 0.235, while the proportion of 
 # 'Single' is 0.209. 'Married' individuals have a higher tendency of default payement. 'Other' has a very low percentage 
 # of default payment, but we just have 54 individuals, which is not enough data. 'Divorced' has the higher 
@@ -363,9 +372,9 @@ par(mfrow=c(1,2))
 # default or not default category
 # a count of all the values to get an initial idea
 initial.barplot(credit,AGE)
-```
 
-```{r, include=FALSE}
+grouped.count.plot(credit,AGE,default.payment.next.month)
+
 invisible(require(plyr))
 head(arrange(as.data.frame(table(credit$AGE)),desc(Freq)), n = 5)
 # from this analysis, it is obvious that the quantity of users of credit cards, are centered around
@@ -374,9 +383,7 @@ head(arrange(as.data.frame(table(credit$AGE)),desc(Freq)), n = 5)
 freq.table <- table(credit$AGE, credit$default.payment.next.month)
 p.table <- round(prop.table(freq.table, margin = 1), digits = 3)
 (age.df<-as.data.frame(cbind(age=row.names(p.table),freq.table, p.table)))
-```
 
-```{r, echo=FALSE,comment=NA}
 head(arrange(age.df,desc(age.df$`Not default`)), n = 5)
 # in this case, the proportions for not default are around 31 years, somewhat closed from the total
 # around 29, but for 57 years, there is also a higher ratio in here, the default parameter is dominant
@@ -384,6 +391,10 @@ head(arrange(age.df,desc(age.df$`Not default`)), n = 5)
 head(arrange(age.df,desc(age.df$Default)), n = 5)
 # this ratio is somewhat scattered, but they are around 51 and 64 years old, the most default is 
 # predominant.
+
+create.latex.table(df=head(arrange(age.df,desc(age.df$`Not default`)), n = 5),type="latex",caption="Y and Age Top 5 Not Default frequencies",file=glue(dataDir,"/y_age_not_default.tex"))
+
+create.latex.table(df=head(arrange(age.df,desc(age.df$Default)), n = 5),type="latex",caption="Y and Age Top 5 Default frequencies",file=glue(dataDir,"/y_age_default.tex"))
 ```
 
 ## PCA Construction
@@ -414,6 +425,7 @@ Xs <- Xs * sqrt(n)/sqrt(n-1)
 #get eigenvalues 
 eigX <- eigen(covX)
 
+save.plot(plot = plot(eigX$value,type="l",main="Screeplot"),name = "Screeplot.jpeg",type = "jpeg",plotDir = plotDir,height = "600",width = "600",res = "150" )
 plot(eigX$value,type="l",main="Screeplot")
 cumsum(100*eigX$values/sum(eigX$values))
 require(FactoMineR)
@@ -426,7 +438,7 @@ gc()
 ```
 
 
-```{r, include=FALSE}
+```{r, echo=FALSE}
 bill.indexes<-grepl("PAY_AMT", names(credit))
 credit.PCA <- PCA(credit,quali.sup = factor.indexes,quanti.sup = c(18:23) ,ncp=3)
 summary(credit.PCA)
@@ -437,6 +449,8 @@ require(factoextra)
 #PCA Colored according to the quality of representation of the variables
 fviz_pca_var(credit.PCA, col.var="cos2") +
 scale_color_gradient2(low="white", mid="blue", high="red", midpoint=0.5) + theme_minimal()
+
+fviz_pca_var(credit.PCA, select.var = list(contrib = 3))
 # If a variable is perfectly represented by only two components, the sum of the cos2 is equal to one. In this case the variables will be positioned on the circle of correlations.
 # For some of the variables, more than 2 components are required to perfectly represent the data. In this case the variables are positioned inside the circle of correlations.
 ```
