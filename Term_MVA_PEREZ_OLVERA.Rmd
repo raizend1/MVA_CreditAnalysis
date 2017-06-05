@@ -780,8 +780,8 @@ alfa <- credit.tree$cptable$CP[i]
 # prune the tree
 p1 <- prune(credit.tree,cp=alfa)
 p1
-
-barplot(p1$variable.importance, main="Variable importance")
+save.plot(plot = barplot(p1$variable.importance,las=2,cex.names=0.8),name = "Variable importance.jpeg",type = "jpeg",plotDir = plotDir,width = "900",height = "600",res = "110")
+barplot(p1$variable.importance, main="Variable importance",las=2,cex.names=0.8)
 ```
 
 ```{r Desicion tree - Obtained values, echo=FALSE}
@@ -791,29 +791,18 @@ invisible(library(caret))
 confusionMatrix(pred.test, credit.sp[credit.test,]$default.payment.next.month,mode = "prec_recall")
 ```
 
-```{r , echo=FALSE}
-# for error Error in approxfun(x.values.1, y.values.1, method = "constant", f = 1, : zero non-NA points
-require(dplyr)
-credit[credit.test,]%>% count(default.payment.next.month)
-# resort dataframe
-set.seed(555) 
-credit.test <- sample(credit.test)
-
-credit.sp[credit.test,]%>% count(default.payment.next.month)
-```
-
 ```{r ROC computation, echo=FALSE}
 threshold = 0.5
 pred.test.df<-as.data.frame(predict(p1, newdata=credit.sp[credit.test,],type="prob"))
 
 invisible(require(ROCR))
-pred <- prediction(pred.test.df$Default, credit.sp$default.payment.next.month[credit.test])
+pred <- prediction(pred.test.df$`Not default`, credit.sp$default.payment.next.month[credit.test])
 roc <- performance(pred,measure="tpr",x.measure="fpr")
 plot(roc, main="ROC curve")
 abline(0,1,col="blue")
 library(pROC)
-auc(roc(credit.sp[credit.test,]$default.payment.next.month, pred.test.df$Default))
-# Area under the curve: 0.8202
+auc(roc(credit.sp[credit.test,]$default.payment.next.month, pred.test.df$`Not default`))
+# Area under the curve: 0.7026
 ```
 
 ```{r Random forest, echo=FALSE}
