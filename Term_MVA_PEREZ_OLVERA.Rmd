@@ -567,7 +567,7 @@ barplot(hc$height[(nrow(Psi)-20):(nrow(Psi)-1)])
 #Cut the tree with the clusters defined. Then we generate the centers for the k-means and we do that.
 nc = 5
 cutT = cutree(hc, nc)
-cdg = aggregate(as.data.frame(Psi),list(cutT),mean)[,2:(nd+1)]
+cdg = aggregate(as.data.frame(Psi),list(cutT),mean)[,2:(ncp+1)]
 km = kmeans(Psi, centers = cdg)
 
 #Plot k-means results. We can distinguish 5 clusters easily.
@@ -691,12 +691,12 @@ The dataset contains 26994 observations, this will take a long time for Boruta t
 ```{r Variable importance - stratified sample, echo=FALSE}
 invisible(require(Boruta))
 # first to speed up things, we take an 10% stratified random sample, from all the groups in default.payment.next.month
-credit.stratified<-stratified(credit, "default.payment.next.month", 0.1)
+credit.stratified<-stratified(credit, "default.payment.next.month", 0.2)
 #checking the distribution values
 rbind(noquote(table(credit.stratified$default.payment.next.month)),sapply(prop.table(table(credit.stratified$default.payment.next.month))*100, function(u) noquote(sprintf('%.2f%%',u))))
 ```
 So we confirm that indeed it is the 20% of the data, exactly what we wanted. Let's proceed with Boruta.
-```{r Variable importance, include=FALSE}
+```{r Variable importance, echo=FALSE}
 cl <- makeCluster(detectCores())
 registerDoParallel(cl)
 credit.importance <- Boruta(default.payment.next.month~., data = credit.stratified, doTrace = 2)
@@ -711,42 +711,42 @@ lz<-lapply(1:ncol(credit.importance$ImpHistory),function(i)
 credit.importance$ImpHistory[is.finite(credit.importance$ImpHistory[,i]),i])
 names(lz) <- colnames(credit.importance$ImpHistory)
 Labels <- sort(sapply(lz,median))
-axis(side = 1,las=2,labels = names(Labels), at = 1:ncol(credit.importance$ImpHistory), cex.axis = 0.7)
+axis(side = 1,las=2,labels = names(Labels), at = 1:ncol(credit.importance$ImpHistory), cex.axis = 0.8)
 ```
 
 As mentioned before
 ```{r sampling balance and subsampling, echo=FALSE}
+#remove sex and pay_0
+credit.sp<-credit[,-c(2,6)]
 set.seed(123)
 nd.indexes<-sample(which(credit$default.payment.next.month == "Not default"),6081)
 d.indexes<-which(credit$default.payment.next.month == "Default")
 subsample.index<-sort(c(nd.indexes,d.indexes))
-credit.balanced<-credit[subsample.index,]
 
-table(credit.balanced$default.payment.next.month)
+table(credit[subsample.index,]$default.payment.next.month)
 
-train.indexes <- sample(nrow(credit.balanced), size = ceiling(length(subsample.index)*0.7))
-
-credit.train <- as.numeric(unlist(row.names(credit.balanced[train.indexes,])))
-credit.test <- as.numeric(unlist(row.names(credit.balanced[-train.indexes,])))
-
+credit.train <- sample(subsample.index, size = ceiling(length(subsample.index)*0.7))
+credit.test <- subset(subsample.index, !(subsample.index %in% credit.train))
 ```
 
 ```{r initial linear model, echo=FALSE}
 
 # Checking PCA
-credit.glm<-glm((as.numeric(default.payment.next.month)-1) ~ ., data=credit[credit.train,-c(2,3,4,6,7,8,9,10,11)])
-print(summary(credit.glm))
+# credit.glm<-glm((as.numeric(default.payment.next.month)-1) ~ ., data=credit[credit.train,-c(2,3,4,6,7,8,9,10,11)])
+# print(summary(credit.glm))
 
 ```
 
 
 ```{r Desicion tree definition, echo=FALSE}
 invisible(require(rattle))
-credit.tree <- rpart(default.payment.next.month ~ ., data=credit[credit.train,], control=rpart.control(cp=0.01, xval=10))
+set.seed(555)
+credit.tree <- rpart(default.payment.next.month ~ ., data=credit.sp[credit.train,], control=rpart.control(cp=0.01, xval=10))
 #feature selection is done intrinseclt
 #cp is the complexity parameter, is the alpha. Maximum is 0
 #xval 10 fold cross validation 
 #with this we get the maximal tree
+save.plot(plot=fancyRpartPlot(credit.tree),name = "desicion_tree.jpeg",type = "jpeg",plotDir = plotDir,width = "700",height = "600",res = "110")
 fancyRpartPlot(credit.tree)
 printcp(credit.tree)
 ```
@@ -763,6 +763,7 @@ credit.tree.leaf$cum_n1 <- cumsum(credit.tree.leaf$n1_train)/sum(credit.tree.lea
 credit.tree.leaf$cum_n2 <- cumsum(credit.tree.leaf$n2_train)/sum(credit.tree.leaf$n2_train)
 credit.tree.leaf$dif_cum <- credit.tree.leaf$cum_n2 - credit.tree.leaf$cum_n1
 
+create.latex.table(df=print(credit.tree.leaf),type = "latex",caption = "Leaves information",file = "leaves_information.tex")
 print(credit.tree.leaf)
 ```
 
@@ -798,12 +799,36 @@ barplot(p1$variable.importance, main="Variable importance")
 ```
 
 ```{r Desicion tree - Obtained values, echo=FALSE}
-pred.test <- predict(p1, newdata=credit[credit.test,],type="class")
+pred.test <- predict(p1, newdata=credit.sp[credit.test,],type="class")
 
 invisible(library(caret))
-confusionMatrix(pred.test, credit[credit.test,]$default.payment.next.month,mode = "prec_recall")
+confusionMatrix(pred.test, credit.sp[credit.test,]$default.payment.next.month,mode = "prec_recall")
 ```
 
+```{r , echo=FALSE}
+# for error Error in approxfun(x.values.1, y.values.1, method = "constant", f = 1, : zero non-NA points
+require(dplyr)
+credit[credit.test,]%>% count(default.payment.next.month)
+# resort dataframe
+set.seed(555) 
+credit.test <- sample(credit.test)
+
+credit.sp[credit.test,]%>% count(default.payment.next.month)
+```
+
+```{r ROC computation, echo=FALSE}
+threshold = 0.5
+pred.test.df<-as.data.frame(predict(p1, newdata=credit.sp[credit.test,],type="prob"))
+
+invisible(require(ROCR))
+pred <- prediction(pred.test.df$Default, credit.sp$default.payment.next.month[credit.test])
+roc <- performance(pred,measure="tpr",x.measure="fpr")
+plot(roc, main="ROC curve")
+abline(0,1,col="blue")
+library(pROC)
+auc(roc(credit.sp[credit.test,]$default.payment.next.month, pred.test.df$Default))
+# Area under the curve: 0.8202
+```
 
 ```{r Random forest, echo=FALSE}
 library(randomForest)
