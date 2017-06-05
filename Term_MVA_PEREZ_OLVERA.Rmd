@@ -286,7 +286,8 @@ knitr::opts_chunk$set(cache=TRUE)
 #**************************** Outlier detection Mahalanobis ***********************************
 #outlier detection with mahalanobis 
 require(chemometrics)
-outlier.scores <- Moutlier(credit[,-factor.indexes],quantile=0.975,plot=TRUE)
+outlier.scores <- 
+    Moutlier(credit[,-factor.indexes],quantile=0.975,plot=TRUE)
 credit <- subset(credit,outlier.scores$md<outlier.scores$cutoff)
 
 # update of continuous and categorical subsets
@@ -298,9 +299,10 @@ remove(outlier.scores)
 
 save.plot(Moutlier(credit[,-factor.indexes],quantile=0.975,plot=TRUE),"Mahalanobis_outlier_detection.jpeg","jpeg",plotDir,"1500","900","150")
 
-# Altought, from all this, in some cases, the're could be just rich people in some variables, 
+# Altought, from all this, in some cases, they're could be just rich people in some variables, 
 # or really indebted people in others
 ```
+
 
 ## Detection of most correlated continuous variables 
 
@@ -470,6 +472,8 @@ gc()
 bill.indexes<-grepl("PAY_AMT", names(credit))
 credit.PCA <- PCA(credit,quali.sup = factor.indexes,quanti.sup = c(18:23),ncp = ncp)
 summary(credit.PCA)
+
+
 ```
 
 ```{r, echo=FALSE,fig.cap="PCA Colored according to cos2"}
@@ -503,27 +507,7 @@ e_ncp<-estim_ncp(credit.continuos, ncp.min=0, ncp.max=p-1, scale=TRUE, method="G
 nd = 3  #nd contains the number of relevant dimensions taken
 
 #All the BILL_AMT are well represented and contribute the most to dim 1. LIMIT_BALL is more related to dim2
-desc.credit.pca<-dimdesc(credit.PCA)
-```
-
-```{r, echo=FALSE}
-setwd(dataDir)
-for(i in 1:length(desc.credit.pca)){
-  dim.name<-c("quanti","quali","category")
-  # just take top 5 and bottom 5 of category
-  eval(parse(text = glue("category<-rbind(head(as.data.frame(desc.credit.pca$Dim.",i,"$category), n = 5),tail(as.data.frame(desc.credit.pca$Dim.",i,"$category), n = 5))")))
-  eval(parse(text = glue("desc.df<-cbindPad(as.data.frame(desc.credit.pca$Dim.",i,"$quanti),as.data.frame(rownames(desc.credit.pca$Dim.",i,"$quali)),as.data.frame(desc.credit.pca$Dim.",i,"$quali),as.data.frame(rownames(category)),category)")))
-  eval(parse(text = glue("create.latex.table(df=desc.df,type=\"latex\",caption=\"Dimension ",i," description of dimensions\",file=\"dim",i,"_dimdesc_pca.tex\")")))
-}
-setwd(codeDir)
-#store separate tables
-# for(i in 1:length(desc.credit.pca)){
-#   for(j in 1:3){
-#     eval(parse(text = glue("create.latex.table(df=as.data.frame(desc.credit.pca$Dim.",i,"$",dim.name[j],"),type=\"latex\",caption=\"Dim ",i, dim.name[j],"\",file=glue(dataDir,\"/dim",i,"_",dim.name[j],".tex\"))")))
-#   }
-# }
-
-
+dimdesc(credit.PCA)
 ```
 
 ### MCA Construction
@@ -533,6 +517,7 @@ credit.MCA<-MCA(credit, quali.sup = 24, quanti.sup = c(1,5,12:23) ,level.ventil 
 ```
 
 ```{r, echo=FALSE}
+#dimdesc(credit.MCA, axes=1:2, proba=0.05)
 (desc.credit.mca<-dimdesc(credit.MCA))
 ```
 
@@ -546,13 +531,15 @@ for(i in 1:length(desc.credit.mca)){
   eval(parse(text = glue("create.latex.table(df=desc.df,type=\"latex\",caption=\"Dimension ",i," description of dimensions\",file=\"dim",i,"_dimdesc_mca.tex\")")))
 }
 setwd(codeDir)
+
 # Visualize top 10 variable categories
-#fviz_mca_var(credit.MCA, select.var = list(cos2 = 10))
+fviz_mca_var(credit.MCA, select.var = list(cos2 = 10))
 ```
+
 
 ### Cluster Definition
 
-```{r, echo=FALSE}
+```{r, include=TRUE}
 #*****************************************************************************************#
 #   Definition of clusters   (Clustering)                                 #
 #*****************************************************************************************#
@@ -561,7 +548,7 @@ Psi = credit.PCA$ind$coord[,1:nd]
 hc = hclust(dist(Psi), method = "ward.D2")
 plot(hc)
 abline(h=120, col="red")
-#rect.hclust(X.hc, k=5, border = "red")
+#rect.hclust(hc, k=5, border = "red")
 barplot(hc$height[(nrow(Psi)-20):(nrow(Psi)-1)])
 
 #Cut the tree with the clusters defined. Then we generate the centers for the k-means and we do that.
@@ -616,7 +603,6 @@ We have generated 5 classes according the inspection that we have done in the da
   - BILL_AMT1, BILL_AMT2, BILL_AMT3, BILL_AMT4, BILL_AMT5 and BILL_AMT6 have quite lower values than the overall mean.
   - LIMIT_BAL has quite higher values than the overall mean.
   - AGE have similar values with the overall mean.
-
 
 
 !!!!! c3  !!!!! 
