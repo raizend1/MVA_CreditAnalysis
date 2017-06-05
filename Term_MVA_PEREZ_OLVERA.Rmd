@@ -161,6 +161,16 @@ xtable(
 | 1 to 8         | Payment delay for 'X' months | PD'X'     |
 Table: Codification of *PAY* categorical values
 
+## Check distribution of Data  
+Let's check the distribution of all the variables. For the continuous ones we can plot an histogram, for the categorical ones, a barplot with the distribution within the levels of the variable.
+```{r ,echo=FALSE,include=FALSE,fig.cap="Variable distribution"}
+knitr::opts_chunk$set(cache=TRUE)
+save.plot(grid.plot(credit,15),"Variable_Distribution.jpeg","jpeg",plotDir,"1500","1500","110")
+setwd(codeDir)
+```
+![Variable distribution](`r plotDir`/Variable_Distribution.png)
+with this plot, we can see that the continuous data is very skewed, and not normal at all, we will apply some transformations to make the data more "normal"
+
 ### Check Zero variance predictors 
 Are there any zero variance predictors? nearZeroVar() diagnoses predictors that have one unique value (i.e. are zero variance predictors) or predictors that are have both of the following characteristics: they have very few unique values relative to the number of samples and the ratio of the frequency of the most common value to the frequency of the second most common value is large. 
 ```{r Check Zero Values, echo=FALSE,include=FALSE}
@@ -188,7 +198,7 @@ md.pattern(credit)
 # statements and the previous payment are 0, this could be treated as a missing value, because if there is 
 # a credit card issued, there must be values for this columns, so we treat them as missing values. First 
 # a check of how many of this occurrences exist is needed
-check.zero.rows<-function(input.data){
+check.new.clients<-function(input.data){
   indexes<-NULL
   j<-1
   for(i in 1:dim(input.data)[1]){
@@ -200,15 +210,34 @@ check.zero.rows<-function(input.data){
   return(indexes)
 }
 
-cl <- makeCluster(detectCores())
-registerDoParallel(cl)
+check.zero.rows<-function(input.data){
+  indexes<-NULL
+  j<-1
+  for(i in 1:dim(input.data)[1]){
+    if((all(input.data[i,c(1:6)]=="NC")) && all(input.data[i,c(7:dim(input.data)[2])]==0)){
+      indexes[j]<- i
+      j<-j+1
+    }
+  }
+  return(indexes)
+}
+
+# cl <- makeCluster(detectCores())
+# registerDoParallel(cl)
+num.new.clients<-check.new.clients(credit[,c(6:23)])
 num.zeros.index<-check.zero.rows(credit[,c(6:23)])
-stopCluster(cl)
+
+# stopCluster(cl)
 ```
 
-```{r Check missing values output, include=FALSE,comment=NA}
+```{r Check missing values output, echo=FALSE,comment=NA}
+#number of "inactive" users
 length(num.zeros.index)
 round((length(num.zeros.index)*100)/dim(credit)[1],2)
+
+#number of "new" users
+length(num.new.clients)
+round((length(num.new.clients)*100)/dim(credit)[1],2)
 
 credit<-credit[-num.zeros.index,]
 
@@ -222,17 +251,12 @@ credit.factors<-credit[,factor.indexes]
 | Zero values found | `r length(num.zeros.index)` | `r round((length(num.zeros.index)*100)/dim(credit)[1],2)`  |
 Table: Total count of values found as Zero 
 
-So in total there are 495 of this kind of data, it represents 1.68% of the data, but we will discard them anyway because this data can produce wrong calculations.
+|    | Total | Total(%) | 
+|--------|--------|---------|
+| Zero values found | `r length(num.new.clients)` | `r round((length(num.new.clients)*100)/dim(credit)[1],2)`  |
+Table: Total count of values found as new clients
 
-## Check distribution of Data  
-Let's check the distribution of all the variables. For the continuous ones we can plot an histogram, for the categorical ones, a barplot with the distribution within the levels of the variable.
-```{r ,echo=FALSE,include=FALSE,fig.cap="Variable distribution"}
-knitr::opts_chunk$set(cache=TRUE)
-save.plot(grid.plot(credit,15),"Variable_Distribution.jpeg","jpeg",plotDir,"1500","1500","110")
-setwd(codeDir)
-```
-![Variable distribution](`r plotDir`/Variable_Distribution.png)
-with this plot, we can see that the continuous data is very skewed, and not normal at all, we will apply some transformations to make the data more "normal"
+So in total there are 495 of this kind of data, it represents 1.68% of the data, but we will discard them anyway because this data can produce wrong calculations.
 
 ## Outlier Detection   
 
@@ -407,7 +431,7 @@ create.latex.table(df=head(arrange(age.df,desc(age.df$Default)), n = 5),type="la
 
 Based on our correlation matrix, we decided to take the BILL variables as the explanatory ones in PCA, in an initial exploratory PCA, 
 
-```{r, include=FALSE}
+```{r, echo=FALSE}
 n<-nrow(credit.continuos)
 p<-ncol(credit.continuos)
 
@@ -432,21 +456,21 @@ Xs <- Xs * sqrt(n)/sqrt(n-1)
 eigX <- eigen(covX)
 
 save.plot(plot = plot(eigX$value,type="l",main="Screeplot"),name = "Screeplot.jpeg",type = "jpeg",plotDir = plotDir,height = "600",width = "600",res = "150" )
-plot(eigX$value,type="l",main="Screeplot")
+plot(eigX$value,ylab="Eigenvalues",type="l",main="Screeplot")
 cumsum(100*eigX$values/sum(eigX$values))
 require(FactoMineR)
 e_ncp<-estim_ncp(X, ncp.min=0, ncp.max=p-1, scale=TRUE, method="GCV")
 ncp<-e_ncp$ncp
 
 #cleaning up the house
-rm(N,G,X,Xs,covX,eigX)
+rm(N,G,X,Xs,covX)
 gc()
 ```
 
 
 ```{r, echo=FALSE}
 bill.indexes<-grepl("PAY_AMT", names(credit))
-credit.PCA <- PCA(credit,quali.sup = factor.indexes,quanti.sup = c(18:23) ,ncp=3)
+credit.PCA <- PCA(credit,quali.sup = factor.indexes,quanti.sup = c(18:23),ncp = ncp)
 summary(credit.PCA)
 
 
@@ -472,10 +496,14 @@ scale_color_gradient2(low="white", mid="blue",
 
 ```{r, echo=FALSE}
 # Coordinates of variables
+#loadings
 head(credit.PCA$var$coord)
 head(credit.PCA$var$contrib)
 credit.PCA$eig
-plot(credit.PCA$eig$eigenvalue,type="l")
+save.plot(plot = plot(credit.PCA$eig$eigenvalue,type="l",main="Screeplot PCA"),name = "Screeplot.jpeg",type = "jpeg",plotDir = plotDir,height = "600",width = "600",res = "150" )
+plot(credit.PCA$eig$eigenvalue,type="l",main="Screeplot")
+cumsum(100*credit.PCA$eig$eigenvalue/sum(credit.PCA$eig$eigenvalue))
+e_ncp<-estim_ncp(credit.continuos, ncp.min=0, ncp.max=p-1, scale=TRUE, method="GCV")
 nd = 3  #nd contains the number of relevant dimensions taken
 
 #All the BILL_AMT are well represented and contribute the most to dim 1. LIMIT_BALL is more related to dim2
@@ -489,7 +517,21 @@ credit.MCA<-MCA(credit, quali.sup = 24, quanti.sup = c(1,5,12:23) ,level.ventil 
 ```
 
 ```{r, echo=FALSE}
-dimdesc(credit.MCA, axes=1:2, proba=0.05)
+#dimdesc(credit.MCA, axes=1:2, proba=0.05)
+(desc.credit.mca<-dimdesc(credit.MCA))
+```
+
+```{r, include=FALSE}
+setwd(dataDir)
+for(i in 1:length(desc.credit.mca)){
+  dim.name<-c("quanti","quali","category")
+  # just take top 5 and bottom 5 of category
+  eval(parse(text = glue("category<-rbind(head(as.data.frame(desc.credit.mca$`Dim ",i,"`$category), n = 5),tail(as.data.frame(desc.credit.mca$`Dim ",i,"`$category), n = 5))")))
+  eval(parse(text = glue("desc.df<-cbindPad(as.data.frame(desc.credit.mca$`Dim ",i,"`$quanti),as.data.frame(rownames(desc.credit.mca$`Dim ",i,"`$quali)),as.data.frame(desc.credit.mca$`Dim ",i,"`$quali),as.data.frame(rownames(category)),category)")))
+  eval(parse(text = glue("create.latex.table(df=desc.df,type=\"latex\",caption=\"Dimension ",i," description of dimensions\",file=\"dim",i,"_dimdesc_mca.tex\")")))
+}
+setwd(codeDir)
+
 # Visualize top 10 variable categories
 fviz_mca_var(credit.MCA, select.var = list(cos2 = 10))
 ```
