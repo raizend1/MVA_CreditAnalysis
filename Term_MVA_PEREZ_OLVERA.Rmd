@@ -334,7 +334,7 @@ freq.table <- (with(data = credit, table(SEX, default.payment.next.month)))
 p.table <- round(prop.table(freq.table, margin = 1), digits = 3)
 cbind(freq.table, p.table)
 
-create.latex.table(df=cbind(freq.table, p.table),type="latex",caption="Y and Sex frequencies",file=glue(dataDir,"/y_sex.tex"),digits = 0)
+create.latex.table(df=cbind(freq.table, p.table),type="latex",caption="Y and Sex frequencies",file=glue(dataDir,"/y_sex.tex"),digits = 2)
 # As we see, the proportion of males with default payment is 0.242, and the proportion of females is 0.208.
 # Indeed, males in general have a higher tendency of default payment.
 ```
@@ -359,7 +359,7 @@ freq.table <- table(credit$EDUCATION, credit$default.payment.next.month)
 p.table <- round(prop.table(freq.table, margin = 1), digits = 3)
 cbind(freq.table, p.table)
 
-create.latex.table(df=cbind(freq.table, p.table),type="latex",caption="Y and Education frequencies",file=glue(dataDir,"/y_education.tex"),digits = 0)
+create.latex.table(df=cbind(freq.table, p.table),type="latex",caption="Y and Education frequencies",file=glue(dataDir,"/y_education.tex"),digits = 2)
 
 # The data have interesting results, first showing that not default are the most likely case in
 # the unknown categories, and also showing that even if university is the bigest tendency,
@@ -385,7 +385,7 @@ freq.table <- (with(data = credit, table(MARRIAGE, default.payment.next.month)))
 p.table <- round(prop.table(freq.table, margin = 1), digits = 3)
 cbind(freq.table, p.table)
 
-create.latex.table(df=cbind(freq.table, p.table),type="latex",caption="Y and Marriage frequencies",file=glue(dataDir,"/y_marriage.tex"),digits = 0)
+create.latex.table(df=cbind(freq.table, p.table),type="latex",caption="Y and Marriage frequencies",file=glue(dataDir,"/y_marriage.tex"),digits = 2)
 
 # As we can see, the proportion of 'Married' individuals with default payement is 0.235, while the proportion of 
 # 'Single' is 0.209. 'Married' individuals have a higher tendency of default payement. 'Other' has a very low percentage 
@@ -422,9 +422,9 @@ head(arrange(age.df,desc(age.df$Default)), n = 5)
 # this ratio is somewhat scattered, but they are around 51 and 64 years old, the most default is 
 # predominant.
 
-create.latex.table(df=head(arrange(age.df,desc(age.df$`Not default`)), n = 5),type="latex",caption="Y and Age Top 5 Not Default frequencies",file=glue(dataDir,"/y_age_not_default.tex"),digits = 0)
+create.latex.table(df=head(arrange(age.df,desc(age.df$`Not default`)), n = 5),type="latex",caption="Y and Age Top 5 Not Default frequencies",file=glue(dataDir,"/y_age_not_default.tex"),digits = 2)
 
-create.latex.table(df=head(arrange(age.df,desc(age.df$Default)), n = 5),type="latex",caption="Y and Age Top 5 Default frequencies",file=glue(dataDir,"/y_age_default.tex"),digits = 0)
+create.latex.table(df=head(arrange(age.df,desc(age.df$Default)), n = 5),type="latex",caption="Y and Age Top 5 Default frequencies",file=glue(dataDir,"/y_age_default.tex"),digits = 2)
 ```
 
 ## PCA Construction
