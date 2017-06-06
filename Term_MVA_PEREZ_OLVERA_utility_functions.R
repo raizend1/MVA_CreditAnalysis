@@ -317,13 +317,14 @@ stratified <- function(df, group, size, select = NULL,
 #' @param align: array of string containing the size of the columns. If unspecified will use default values. An example
 #' to get 5 columns with the second one with 10cm wide: align.columns = c("rp{10cm}rrr")
 #' @param file: name of the output file. Must contain .tex at the end
+#' @param digits: number of decimals to use
 #' 
 #' @return latex table
 #' 
 #' @examples
-create.latex.table<-function(df,type,caption,align,file){
+create.latex.table<-function(df,type,caption,align,file,digits){
   require(xtable)
-  ifelse(missing(align),print(xtable(data.frame(row = rownames(df),data.frame(df)),type=type,caption=caption,digits=-2),file=file,include.rownames = FALSE),print(xtable(data.frame(row = rownames(df),data.frame(df)),type=type,caption=caption,align = align),file=file,include.rownames = FALSE,digits=-2))
+  ifelse(missing(align),print(xtable(data.frame(row = rownames(df),data.frame(df)),type=type,caption=caption,digits=digits),file=file,include.rownames = FALSE),print(xtable(data.frame(row = rownames(df),data.frame(df)),type=type,caption=caption,align = align),file=file,include.rownames = FALSE,digits=digits))
 }
 
 #' @title Saves a plot
